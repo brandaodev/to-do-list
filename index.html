@@ -1,351 +1,248 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Todo List Firebase — Cards com Drag-and-Drop</title>
-
-    <!-- CSS principal (respeitando o Design System fornecido) -->
-    <link rel="stylesheet" href="style.css" />
-
-    <!-- Fontes e ícones -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfN5hWtvG2Fjg5bqQx1rYtMG7JyPpY1X6N2n0xQxZp5Z0hKf0xwXQHow=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    />
-  </head>
-  <body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List - Firebase Firestore</title>
+    
+    <!-- CSS personalizado com tema escuro e design responsivo -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Fontes e ícones para interface moderna -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Container principal da aplicação -->
     <div class="app-container">
-      <!-- Cabeçalho -->
-      <header class="app-header">
-        <div class="container">
-          <div class="header-content">
-            <h1 class="app-title">
-              <i class="fas fa-tasks"></i>
-              Todo List Firebase
-            </h1>
-            <div class="stats-container">
-              <div class="stat-item">
-                <span class="stat-number" id="totalTasks">0</span>
-                <span class="stat-label">Total</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-number" id="completedTasks">0</span>
-                <span class="stat-label">Concluídas</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-number" id="pendingTasks">0</span>
-                <span class="stat-label">Pendentes</span>
-              </div>
+        <!-- Cabeçalho com título e estatísticas -->
+        <header class="app-header">
+            <div class="container">
+                <div class="header-content">
+                    <h1 class="app-title">
+                        <i class="fas fa-tasks"></i>
+                        Todo List Firebase
+                    </h1>
+                    <!-- Estatísticas em tempo real -->
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalTasks">0</span>
+                            <span class="stat-label">Total</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="completedTasks">0</span>
+                            <span class="stat-label">Concluídas</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="pendingTasks">0</span>
+                            <span class="stat-label">Pendentes</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <!-- Conteúdo principal -->
-      <main class="main-content">
-        <div class="container">
-          <!-- Seção de categorias (cards em grid com drag-and-drop) -->
-          <section class="categories-section">
-            <div class="section-header">
-              <h2 class="section-title">
-                <i class="fas fa-folder"></i>
-                Categorias
-              </h2>
-              <button class="btn btn--primary btn--sm" id="addCategoryBtn">
-                <i class="fas fa-plus"></i>
-                Nova Categoria
-              </button>
-            </div>
+        <!-- Conteúdo principal -->
+        <main class="main-content">
+            <div class="container">
+                <!-- Menu de categorias -->
+                <section class="categories-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="fas fa-folder"></i>
+                            Categorias
+                        </h2>
+                        <button class="btn btn--primary btn--sm" id="addCategoryBtn">
+                            <i class="fas fa-plus"></i>
+                            Nova Categoria
+                        </button>
+                    </div>
+                    
+                    <!-- Lista de categorias dinâmica -->
+                    <div class="categories-grid" id="categoriesContainer">
+                        <!-- Categorias serão carregadas dinamicamente do Firestore -->
+                    </div>
+                </section>
 
-            <!-- Grid de cards de categorias -->
-            <div
-              class="categories-grid"
-              id="categoriesContainer"
-              aria-live="polite"
-            >
-              <!-- Cards gerados dinamicamente -->
-            </div>
-          </section>
+                <!-- Seção de tarefas -->
+                <section class="tasks-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="fas fa-list-check"></i>
+                            <span id="categoryTitle">Todas as Tarefas</span>
+                        </h2>
+                        <button class="btn btn--primary btn--sm" id="addTaskBtn">
+                            <i class="fas fa-plus"></i>
+                            Nova Tarefa
+                        </button>
+                    </div>
 
-          <!-- Seção de tarefas (visível somente com categoria selecionada) -->
-          <section class="tasks-section hidden" id="tasksSection">
-            <div class="section-header">
-              <h2 class="section-title">
-                <i class="fas fa-list-check"></i>
-                <span id="categoryTitle">Categoria</span>
-              </h2>
-              <button class="btn btn--primary btn--sm" id="addTaskBtn">
-                <i class="fas fa-plus"></i>
-                Nova Tarefa
-              </button>
-            </div>
+                    <!-- Filtros de tarefas -->
+                    <div class="filters-container">
+                        <button class="filter-btn active" data-filter="all">
+                            <i class="fas fa-list"></i>
+                            Todas
+                        </button>
+                        <button class="filter-btn" data-filter="pending">
+                            <i class="fas fa-clock"></i>
+                            Pendentes
+                        </button>
+                        <button class="filter-btn" data-filter="completed">
+                            <i class="fas fa-check-circle"></i>
+                            Concluídas
+                        </button>
+                    </div>
 
-            <!-- Filtros de tarefas -->
-            <div class="filters-container">
-              <button class="filter-btn active" data-filter="all">
-                <i class="fas fa-list"></i>
-                Todas
-              </button>
-              <button class="filter-btn" data-filter="pending">
-                <i class="fas fa-clock"></i>
-                Pendentes
-              </button>
-              <button class="filter-btn" data-filter="completed">
-                <i class="fas fa-check-circle"></i>
-                Concluídas
-              </button>
+                    <!-- Lista de tarefas -->
+                    <div class="tasks-container" id="tasksContainer">
+                        <!-- Tarefas serão carregadas dinamicamente do Firestore -->
+                        <div class="empty-state" id="emptyState">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h3>Nenhuma tarefa encontrada</h3>
+                            <p>Adicione uma nova tarefa para começar!</p>
+                        </div>
+                    </div>
+                </section>
             </div>
-
-            <!-- Lista de tarefas -->
-            <div class="tasks-container" id="tasksContainer">
-              <div class="empty-state" id="emptyState">
-                <i class="fas fa-clipboard-list"></i>
-                <h3>Nenhuma tarefa encontrada</h3>
-                <p>Adicione uma nova tarefa para começar!</p>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
+        </main>
     </div>
 
-    <!-- Modal: Categoria -->
+    <!-- Modal para adicionar/editar categoria -->
     <div class="modal hidden" id="categoryModal">
-      <div class="modal-overlay"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title" id="categoryModalTitle">Nova Categoria</h3>
-          <button
-            class="modal-close"
-            id="closeCategoryModal"
-            aria-label="Fechar modal de categoria"
-          >
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <form class="modal-body" id="categoryForm">
-          <div class="form-group">
-            <label class="form-label" for="categoryName"
-              >Nome da Categoria</label
-            >
-            <input
-              type="text"
-              class="form-control"
-              id="categoryName"
-              name="categoryName"
-              placeholder="Ex.: Trabalho"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="categoryIcon">Ícone</label>
-            <select class="form-control" id="categoryIcon" required>
-              <option value="fas fa-briefcase">💼 Trabalho</option>
-              <option value="fas fa-home">🏠 Casa</option>
-              <option value="fas fa-graduation-cap">🎓 Estudos</option>
-              <option value="fas fa-heart">❤️ Pessoal</option>
-              <option value="fas fa-shopping-cart">🛒 Compras</option>
-              <option value="fas fa-dumbbell">💪 Exercícios</option>
-              <option value="fas fa-plane">✈️ Viagem</option>
-              <option value="fas fa-gamepad">🎮 Lazer</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Cor</label>
-            <div class="color-picker">
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-primary)"
-                id="color1"
-                checked
-              />
-              <label
-                for="color1"
-                style="background-color: var(--color-primary)"
-              ></label>
-
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-success)"
-                id="color2"
-              />
-              <label
-                for="color2"
-                style="background-color: var(--color-success)"
-              ></label>
-
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-warning)"
-                id="color3"
-              />
-              <label
-                for="color3"
-                style="background-color: var(--color-warning)"
-              ></label>
-
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-error)"
-                id="color4"
-              />
-              <label
-                for="color4"
-                style="background-color: var(--color-error)"
-              ></label>
-
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-info)"
-                id="color5"
-              />
-              <label
-                for="color5"
-                style="background-color: var(--color-info)"
-              ></label>
-
-              <input
-                type="radio"
-                name="categoryColor"
-                value="var(--color-text)"
-                id="color6"
-              />
-              <label
-                for="color6"
-                style="background-color: var(--color-text)"
-              ></label>
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="categoryModalTitle">Nova Categoria</h3>
+                <button class="modal-close" id="closeCategoryModal">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-          </div>
-        </form>
-        <div class="modal-footer">
-          <button type="button" class="btn btn--outline" id="cancelCategoryBtn">
-            Cancelar
-          </button>
-          <button type="button" class="btn btn--primary" id="saveCategoryBtn">
-            Salvar
-          </button>
+            <form class="modal-body" id="categoryForm">
+                <div class="form-group">
+                    <label class="form-label" for="categoryName">Nome da Categoria</label>
+                    <input type="text" class="form-control" id="categoryName" name="categoryName" placeholder="Digite o nome da categoria" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="categoryIcon">Ícone</label>
+                    <select class="form-control" id="categoryIcon" required>
+                        <option value="fas fa-briefcase">💼 Trabalho</option>
+                        <option value="fas fa-home">🏠 Casa</option>
+                        <option value="fas fa-graduation-cap">🎓 Estudos</option>
+                        <option value="fas fa-heart">❤️ Pessoal</option>
+                        <option value="fas fa-shopping-cart">🛒 Compras</option>
+                        <option value="fas fa-dumbbell">💪 Exercícios</option>
+                        <option value="fas fa-plane">✈️ Viagem</option>
+                        <option value="fas fa-gamepad">🎮 Lazer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cor</label>
+                    <div class="color-picker">
+                        <!-- Importante: Valores utilizam variáveis do design system -->
+                        <input type="radio" name="categoryColor" value="var(--color-primary)" id="color1" checked>
+                        <label for="color1" style="background-color: var(--color-primary);"></label>
+                        
+                        <input type="radio" name="categoryColor" value="var(--color-success)" id="color2">
+                        <label for="color2" style="background-color: var(--color-success);"></label>
+                        
+                        <input type="radio" name="categoryColor" value="var(--color-warning)" id="color3">
+                        <label for="color3" style="background-color: var(--color-warning);"></label>
+                        
+                        <input type="radio" name="categoryColor" value="var(--color-error)" id="color4">
+                        <label for="color4" style="background-color: var(--color-error);"></label>
+                        
+                        <input type="radio" name="categoryColor" value="var(--color-info)" id="color5">
+                        <label for="color5" style="background-color: var(--color-info);"></label>
+                        
+                        <input type="radio" name="categoryColor" value="var(--color-text)" id="color6">
+                        <label for="color6" style="background-color: var(--color-text);"></label>
+                    </div>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--outline" id="cancelCategoryBtn">Cancelar</button>
+                <button type="button" class="btn btn--primary" id="saveCategoryBtn">Salvar</button>
+            </div>
         </div>
-      </div>
     </div>
 
-    <!-- Modal: Tarefa -->
+    <!-- Modal para adicionar/editar tarefa -->
     <div class="modal hidden" id="taskModal">
-      <div class="modal-overlay"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title" id="taskModalTitle">Nova Tarefa</h3>
-          <button
-            class="modal-close"
-            id="closeTaskModal"
-            aria-label="Fechar modal de tarefa"
-          >
-            <i class="fas fa-times"></i>
-          </button>
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="taskModalTitle">Nova Tarefa</h3>
+                <button class="modal-close" id="closeTaskModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="modal-body" id="taskForm">
+                <div class="form-group">
+                    <label class="form-label" for="taskTitle">Título da Tarefa</label>
+                    <input type="text" class="form-control" id="taskTitle" placeholder="Digite o título da tarefa" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="taskDescription">Descrição (opcional)</label>
+                    <textarea class="form-control" id="taskDescription" rows="3" placeholder="Digite uma descrição para a tarefa"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="taskCategory">Categoria</label>
+                    <select class="form-control" id="taskCategory" required>
+                        <!-- Categorias serão carregadas dinamicamente -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="taskPriority">Prioridade</label>
+                    <select class="form-control" id="taskPriority">
+                        <option value="low">Baixa</option>
+                        <option value="medium" selected>Média</option>
+                        <option value="high">Alta</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="taskDueDate">Data de Vencimento (opcional)</label>
+                    <input type="date" class="form-control" id="taskDueDate">
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--outline" id="cancelTaskBtn">Cancelar</button>
+                <button type="button" class="btn btn--primary" id="saveTaskBtn">Salvar</button>
+            </div>
         </div>
-        <form class="modal-body" id="taskForm">
-          <div class="form-group">
-            <label class="form-label" for="taskTitle">Título da Tarefa</label>
-            <input
-              type="text"
-              class="form-control"
-              id="taskTitle"
-              placeholder="Ex.: Enviar relatório"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="taskDescription"
-              >Descrição (opcional)</label
-            >
-            <textarea
-              class="form-control"
-              id="taskDescription"
-              rows="3"
-              placeholder="Detalhes da tarefa"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="taskCategory">Categoria</label>
-            <select class="form-control" id="taskCategory" required></select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="taskPriority">Prioridade</label>
-            <select class="form-control" id="taskPriority">
-              <option value="low">Baixa</option>
-              <option value="medium" selected>Média</option>
-              <option value="high">Alta</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="taskDueDate"
-              >Data de Vencimento (opcional)</label
-            >
-            <input type="date" class="form-control" id="taskDueDate" />
-          </div>
-        </form>
-        <div class="modal-footer">
-          <button type="button" class="btn btn--outline" id="cancelTaskBtn">
-            Cancelar
-          </button>
-          <button type="button" class="btn btn--primary" id="saveTaskBtn">
-            Salvar
-          </button>
-        </div>
-      </div>
     </div>
 
-    <!-- Modal: Confirmação -->
+    <!-- Modal de confirmação para exclusão -->
     <div class="modal hidden" id="confirmModal">
-      <div class="modal-overlay"></div>
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title">Confirmar Exclusão</h3>
-          <button
-            class="modal-close"
-            id="closeConfirmModal"
-            aria-label="Fechar modal de confirmação"
-          >
-            <i class="fas fa-times"></i>
-          </button>
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirmar Exclusão</h3>
+                <button class="modal-close" id="closeConfirmModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn--outline" id="cancelConfirmBtn">Cancelar</button>
+                <button type="button" class="btn btn--primary" id="confirmDeleteBtn">Excluir</button>
+            </div>
         </div>
-        <div class="modal-body">
-          <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn--outline" id="cancelConfirmBtn">
-            Cancelar
-          </button>
-          <button type="button" class="btn btn--primary" id="confirmDeleteBtn">
-            Excluir
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Loading overlay -->
     <div class="loading-overlay hidden" id="loadingOverlay">
-      <div class="loading-spinner">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>Sincronizando com Firebase...</p>
-      </div>
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Sincronizando com Firebase...</p>
+        </div>
     </div>
 
-    <!-- Script principal (ES Modules) -->
+    <!-- Scripts Firebase via CDN (v12.3.0) -->
+    <!-- Observação: As importações do Firebase (firebase-app.js e firebase-firestore.js) estão dentro do arquivo app.js usando ES Modules. -->
     <script type="module" src="app.js"></script>
-  </body>
+</body>
 </html>
