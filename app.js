@@ -1,23 +1,23 @@
 /*
  * =====================================
  * TODO LIST FIREBASE - LÓGICA PRINCIPAL
+ * Layout de Cards com Drag-and-Drop
  * =====================================
- * 
+ *
  * Aplicação completa de Todo List integrada ao Firebase Firestore
- * 
+ *
  * FUNCIONALIDADES PRINCIPAIS:
+ * - Layout de cards responsivo para categorias (4-3-2-1 por linha)
+ * - Funcionalidade drag-and-drop para reordenar categorias
  * - Integração completa com Firebase Firestore v12.3.0
- * - CRUD de categorias com sincronização em tempo real
- * - CRUD de tarefas com relacionamento às categorias
- * - Filtros dinâmicos (todas, pendentes, concluídas)
- * - Estatísticas em tempo real
+ * - CRUD de categorias e tarefas com sincronização em tempo real
+ * - Filtros dinâmicos e estatísticas
  * - Interface responsiva com tema escuro
  * - Modais para adicionar/editar categorias e tarefas
- * - Confirmação de exclusão
- * - Indicadores de prioridade e status
- * 
+ * - Sistema de ordem persistente no Firebase
+ *
  * REGRAS FIRESTORE RECOMENDADAS:
- * 
+ *
  * rules_version = '2';
  * service cloud.firestore {
  *   match /databases/{database}/documents {
@@ -29,11 +29,11 @@
  *     }
  *   }
  * }
- * 
+ *
  * COLEÇÕES FIRESTORE:
- * - categories: {id, name, icon, color, createdAt}
+ * - categories: {id, name, icon, color, order, createdAt, updatedAt}
  * - tasks: {id, title, description, categoryId, priority, dueDate, completed, createdAt, updatedAt}
- * 
+ *
  * Autor: Sistema Todo List Firebase
  * Data: 2025
  */
@@ -42,21 +42,18 @@
 // IMPORTAÇÕES FIREBASE CDN v12.3.0
 // =====================================
 
-// Importação do Firebase App (Core)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-
-// Importação das funções do Firestore
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs, 
-    doc, 
-    updateDoc, 
-    deleteDoc, 
-    onSnapshot, 
-    query, 
-    orderBy, 
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    query,
+    orderBy,
     where,
     serverTimestamp,
     enableNetwork,
@@ -67,7 +64,6 @@ import {
 // CONFIGURAÇÃO FIREBASE
 // =====================================
 
-// Configuração Firebase fornecida pelo usuário
 const firebaseConfig = {
     apiKey: "AIzaSyBGYD8QDpa5cLCUFoAF4SSHFFOywdElamk",
     authDomain: "todo-lojapronta.firebaseapp.com",
@@ -79,8 +75,6 @@ const firebaseConfig = {
 
 // Inicialização do Firebase
 const app = initializeApp(firebaseConfig);
-
-// Inicialização do Firestore
 const db = getFirestore(app);
 
 // =====================================
@@ -97,6 +91,10 @@ let isEditingTask = false;
 let editingCategoryId = null;
 let editingTaskId = null;
 
+// Variáveis para drag-and-drop
+let draggedElement = null;
+let draggedCategoryId = null;
+
 // Referências dos elementos DOM
 let elements = {};
 
@@ -110,36 +108,35 @@ let tasksListener = null;
 
 /**
  * Função principal de inicialização
- * Configura event listeners e carrega dados do Firestore
  */
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Iniciando aplicação Todo List Firebase...');
-    
+document.addEventListener('DOMContentLoaded', async function () {
+    console.log('🚀 Iniciando aplicação Todo List Firebase com Cards...');
+
     try {
         // Inicializar referências DOM
         initializeElements();
-        
+
         // Configurar event listeners
         setupEventListeners();
-        
+
         // Mostrar loading
         showLoading('Conectando ao Firebase...');
-        
+
         // Verificar conexão Firebase
         await testFirebaseConnection();
-        
+
         // Inicializar listeners em tempo real
         initializeFirestoreListeners();
-        
+
         // Criar categorias padrão se não existirem
         await createDefaultCategories();
-        
+
         // Esconder loading
         hideLoading();
-        
+
         console.log('✅ Aplicação inicializada com sucesso!');
         showFirebaseStatus('Conectado ao Firebase', 'success');
-        
+
     } catch (error) {
         console.error('❌ Erro ao inicializar aplicação:', error);
         hideLoading();
@@ -155,25 +152,26 @@ function initializeElements() {
         // Containers principais
         categoriesContainer: document.getElementById('categoriesContainer'),
         tasksContainer: document.getElementById('tasksContainer'),
-        
+        tasksSection: document.getElementById('tasksSection'),
+
         // Estatísticas
         totalTasks: document.getElementById('totalTasks'),
         completedTasks: document.getElementById('completedTasks'),
         pendingTasks: document.getElementById('pendingTasks'),
-        
+
         // Título da categoria atual
         categoryTitle: document.getElementById('categoryTitle'),
-        
+
         // Estados vazios
         emptyState: document.getElementById('emptyState'),
-        
+
         // Botões principais
         addCategoryBtn: document.getElementById('addCategoryBtn'),
         addTaskBtn: document.getElementById('addTaskBtn'),
-        
+
         // Filtros
         filterBtns: document.querySelectorAll('.filter-btn'),
-        
+
         // Modal de categoria
         categoryModal: document.getElementById('categoryModal'),
         categoryModalTitle: document.getElementById('categoryModalTitle'),
@@ -183,7 +181,7 @@ function initializeElements() {
         saveCategoryBtn: document.getElementById('saveCategoryBtn'),
         cancelCategoryBtn: document.getElementById('cancelCategoryBtn'),
         closeCategoryModal: document.getElementById('closeCategoryModal'),
-        
+
         // Modal de tarefa
         taskModal: document.getElementById('taskModal'),
         taskModalTitle: document.getElementById('taskModalTitle'),
@@ -196,14 +194,14 @@ function initializeElements() {
         saveTaskBtn: document.getElementById('saveTaskBtn'),
         cancelTaskBtn: document.getElementById('cancelTaskBtn'),
         closeTaskModal: document.getElementById('closeTaskModal'),
-        
+
         // Modal de confirmação
         confirmModal: document.getElementById('confirmModal'),
         confirmMessage: document.getElementById('confirmMessage'),
         confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
         cancelConfirmBtn: document.getElementById('cancelConfirmBtn'),
         closeConfirmModal: document.getElementById('closeConfirmModal'),
-        
+
         // Loading overlay
         loadingOverlay: document.getElementById('loadingOverlay')
     };
@@ -216,7 +214,7 @@ function setupEventListeners() {
     // Botões principais
     elements.addCategoryBtn.addEventListener('click', () => openCategoryModal());
     elements.addTaskBtn.addEventListener('click', () => openTaskModal());
-    
+
     // Filtros de tarefas
     elements.filterBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -224,22 +222,22 @@ function setupEventListeners() {
             setActiveFilter(filter);
         });
     });
-    
-    // Modal de categoria - CORRIGIDO: Botão salvar agora funciona
+
+    // Modal de categoria
     elements.saveCategoryBtn.addEventListener('click', handleCategorySubmit);
     elements.cancelCategoryBtn.addEventListener('click', closeCategoryModal);
     elements.closeCategoryModal.addEventListener('click', closeCategoryModal);
-    
-    // Modal de tarefa - CORRIGIDO: Botão salvar agora funciona
+
+    // Modal de tarefa
     elements.saveTaskBtn.addEventListener('click', handleTaskSubmit);
     elements.cancelTaskBtn.addEventListener('click', closeTaskModal);
     elements.closeTaskModal.addEventListener('click', closeTaskModal);
-    
+
     // Modal de confirmação
     elements.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
     elements.cancelConfirmBtn.addEventListener('click', closeConfirmModal);
     elements.closeConfirmModal.addEventListener('click', closeConfirmModal);
-    
+
     // Fechar modais clicando no overlay
     [elements.categoryModal, elements.taskModal, elements.confirmModal].forEach(modal => {
         modal.addEventListener('click', (e) => {
@@ -248,7 +246,7 @@ function setupEventListeners() {
             }
         });
     });
-    
+
     // Tecla ESC para fechar modais
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -267,7 +265,7 @@ function setupEventListeners() {
 async function testFirebaseConnection() {
     try {
         await getDocs(collection(db, 'categories'));
-        console.log('🔥 Conexão Firebase establishment com sucesso!');
+        console.log('🔥 Conexão Firebase estabelecida com sucesso!');
         return true;
     } catch (error) {
         console.error('❌ Erro de conexão Firebase:', error);
@@ -279,12 +277,13 @@ async function testFirebaseConnection() {
  * Inicializa os listeners em tempo real do Firestore
  */
 function initializeFirestoreListeners() {
-    // Listener para categorias
+    // Listener para categorias (ordenadas por 'order' e depois por 'createdAt')
     const categoriesQuery = query(
-        collection(db, 'categories'), 
+        collection(db, 'categories'),
+        orderBy('order', 'asc'),
         orderBy('createdAt', 'asc')
     );
-    
+
     categoriesListener = onSnapshot(categoriesQuery, (snapshot) => {
         categories = [];
         snapshot.forEach((doc) => {
@@ -293,7 +292,7 @@ function initializeFirestoreListeners() {
                 ...doc.data()
             });
         });
-        
+
         console.log('📂 Categorias atualizadas:', categories.length);
         renderCategories();
         updateCategorySelect();
@@ -301,13 +300,13 @@ function initializeFirestoreListeners() {
         console.error('❌ Erro ao escutar categorias:', error);
         showFirebaseStatus('Erro ao sincronizar categorias', 'error');
     });
-    
+
     // Listener para tarefas
     const tasksQuery = query(
-        collection(db, 'tasks'), 
+        collection(db, 'tasks'),
         orderBy('createdAt', 'desc')
     );
-    
+
     tasksListener = onSnapshot(tasksQuery, (snapshot) => {
         tasks = [];
         snapshot.forEach((doc) => {
@@ -316,7 +315,7 @@ function initializeFirestoreListeners() {
                 ...doc.data()
             });
         });
-        
+
         console.log('📋 Tarefas atualizadas:', tasks.length);
         renderTasks();
         updateStatistics();
@@ -332,15 +331,19 @@ function initializeFirestoreListeners() {
 async function addCategoryToFirebase(categoryData) {
     try {
         showLoading('Salvando categoria...');
-        
+
+        // Determinar a próxima ordem
+        const nextOrder = categories.length > 0 ? Math.max(...categories.map(cat => cat.order || 0)) + 1 : 0;
+
         const docRef = await addDoc(collection(db, 'categories'), {
             ...categoryData,
+            order: nextOrder,
             createdAt: serverTimestamp()
         });
-        
+
         console.log('✅ Categoria adicionada:', docRef.id);
         showFirebaseStatus('Categoria salva com sucesso!', 'success');
-        
+
         return docRef.id;
     } catch (error) {
         console.error('❌ Erro ao adicionar categoria:', error);
@@ -357,16 +360,16 @@ async function addCategoryToFirebase(categoryData) {
 async function updateCategoryInFirebase(categoryId, categoryData) {
     try {
         showLoading('Atualizando categoria...');
-        
+
         const categoryRef = doc(db, 'categories', categoryId);
         await updateDoc(categoryRef, {
             ...categoryData,
             updatedAt: serverTimestamp()
         });
-        
+
         console.log('✅ Categoria atualizada:', categoryId);
         showFirebaseStatus('Categoria atualizada com sucesso!', 'success');
-        
+
     } catch (error) {
         console.error('❌ Erro ao atualizar categoria:', error);
         showFirebaseStatus('Erro ao atualizar categoria', 'error');
@@ -382,34 +385,34 @@ async function updateCategoryInFirebase(categoryId, categoryData) {
 async function deleteCategoryFromFirebase(categoryId) {
     try {
         showLoading('Excluindo categoria...');
-        
+
         // Primeiro, excluir todas as tarefas da categoria
         const tasksQuery = query(
             collection(db, 'tasks'),
             where('categoryId', '==', categoryId)
         );
-        
+
         const tasksSnapshot = await getDocs(tasksQuery);
         const deletePromises = [];
-        
+
         tasksSnapshot.forEach((taskDoc) => {
             deletePromises.push(deleteDoc(doc(db, 'tasks', taskDoc.id)));
         });
-        
+
         await Promise.all(deletePromises);
-        
+
         // Depois excluir a categoria
         await deleteDoc(doc(db, 'categories', categoryId));
-        
+
         console.log('✅ Categoria e tarefas relacionadas excluídas:', categoryId);
         showFirebaseStatus('Categoria excluída com sucesso!', 'success');
-        
+
         // Reset da categoria selecionada se foi a excluída
         if (selectedCategoryId === categoryId) {
             selectedCategoryId = null;
-            elements.categoryTitle.textContent = 'Todas as Tarefas';
+            elements.tasksSection.classList.add('hidden');
         }
-        
+
     } catch (error) {
         console.error('❌ Erro ao excluir categoria:', error);
         showFirebaseStatus('Erro ao excluir categoria', 'error');
@@ -425,17 +428,17 @@ async function deleteCategoryFromFirebase(categoryId) {
 async function addTaskToFirebase(taskData) {
     try {
         showLoading('Salvando tarefa...');
-        
+
         const docRef = await addDoc(collection(db, 'tasks'), {
             ...taskData,
             completed: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         });
-        
+
         console.log('✅ Tarefa adicionada:', docRef.id);
         showFirebaseStatus('Tarefa salva com sucesso!', 'success');
-        
+
         return docRef.id;
     } catch (error) {
         console.error('❌ Erro ao adicionar tarefa:', error);
@@ -456,9 +459,9 @@ async function updateTaskInFirebase(taskId, taskData) {
             ...taskData,
             updatedAt: serverTimestamp()
         });
-        
+
         console.log('✅ Tarefa atualizada:', taskId);
-        
+
     } catch (error) {
         console.error('❌ Erro ao atualizar tarefa:', error);
         showFirebaseStatus('Erro ao atualizar tarefa', 'error');
@@ -474,7 +477,7 @@ async function deleteTaskFromFirebase(taskId) {
         await deleteDoc(doc(db, 'tasks', taskId));
         console.log('✅ Tarefa excluída:', taskId);
         showFirebaseStatus('Tarefa excluída com sucesso!', 'success');
-        
+
     } catch (error) {
         console.error('❌ Erro ao excluir tarefa:', error);
         showFirebaseStatus('Erro ao excluir tarefa', 'error');
@@ -483,30 +486,58 @@ async function deleteTaskFromFirebase(taskId) {
 }
 
 /**
+ * Atualiza a ordem das categorias no Firebase
+ */
+async function updateCategoriesOrder(newOrder) {
+    try {
+        showLoading('Salvando nova ordem...');
+
+        const updatePromises = newOrder.map((categoryId, index) => {
+            const categoryRef = doc(db, 'categories', categoryId);
+            return updateDoc(categoryRef, {
+                order: index,
+                updatedAt: serverTimestamp()
+            });
+        });
+
+        await Promise.all(updatePromises);
+
+        console.log('✅ Ordem das categorias atualizada');
+        showFirebaseStatus('Ordem salva com sucesso!', 'success');
+
+    } catch (error) {
+        console.error('❌ Erro ao atualizar ordem:', error);
+        showFirebaseStatus('Erro ao salvar ordem', 'error');
+        throw error;
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
  * Cria categorias padrão se não existirem
  */
 async function createDefaultCategories() {
     try {
-        // Verificar se já existem categorias
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        
+
         if (categoriesSnapshot.empty) {
             console.log('📂 Criando categorias padrão...');
-            
+
             const defaultCategories = [
-                { name: 'Trabalho', icon: 'fas fa-briefcase', color: 'var(--color-primary)' },
-                { name: 'Casa', icon: 'fas fa-home', color: 'var(--color-success)' },
-                { name: 'Estudos', icon: 'fas fa-graduation-cap', color: 'var(--color-warning)' },
-                { name: 'Pessoal', icon: 'fas fa-heart', color: 'var(--color-error)' }
+                { name: 'Trabalho', icon: 'fas fa-briefcase', color: 'var(--color-primary)', order: 0 },
+                { name: 'Casa', icon: 'fas fa-home', color: 'var(--color-success)', order: 1 },
+                { name: 'Estudos', icon: 'fas fa-graduation-cap', color: 'var(--color-warning)', order: 2 },
+                { name: 'Pessoal', icon: 'fas fa-heart', color: 'var(--color-error)', order: 3 }
             ];
-            
-            const promises = defaultCategories.map(category => 
+
+            const promises = defaultCategories.map(category =>
                 addDoc(collection(db, 'categories'), {
                     ...category,
                     createdAt: serverTimestamp()
                 })
             );
-            
+
             await Promise.all(promises);
             console.log('✅ Categorias padrão criadas!');
         }
@@ -520,56 +551,60 @@ async function createDefaultCategories() {
 // =====================================
 
 /**
- * Renderiza a lista de categorias
+ * Renderiza a grid de cards de categorias
  */
 function renderCategories() {
     if (!elements.categoriesContainer) return;
-    
+
     elements.categoriesContainer.innerHTML = '';
-    
+
     categories.forEach(category => {
-        const categoryElement = createCategoryElement(category);
+        const categoryElement = createCategoryCard(category);
         elements.categoriesContainer.appendChild(categoryElement);
     });
+
+    // Configurar drag-and-drop após renderizar
+    setupDragAndDrop();
 }
 
 /**
- * Cria elemento HTML para uma categoria
+ * Cria um card HTML para uma categoria
  */
-function createCategoryElement(category) {
+function createCategoryCard(category) {
     const categoryCount = tasks.filter(task => task.categoryId === category.id).length;
-    
+
     const categoryDiv = document.createElement('div');
     categoryDiv.className = `category-card ${selectedCategoryId === category.id ? 'active' : ''}`;
     categoryDiv.style.setProperty('--category-color', category.color);
-    
+    categoryDiv.draggable = true;
+    categoryDiv.dataset.categoryId = category.id;
+
     categoryDiv.innerHTML = `
-        <div class="category-header">
-            <div class="category-info">
-                <div class="category-name">
-                    <i class="${category.icon}"></i>
-                    ${category.name}
-                </div>
-                <div class="category-count">${categoryCount} tarefa${categoryCount !== 1 ? 's' : ''}</div>
+        <div class="drag-handle">☰</div>
+        <div class="category-actions">
+            <button class="category-action edit" onclick="editCategory('${category.id}')" title="Editar categoria">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="category-action delete" onclick="confirmDeleteCategory('${category.id}')" title="Excluir categoria">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="category-content">
+            <div class="category-icon">
+                <i class="${category.icon}"></i>
             </div>
-            <div class="category-actions">
-                <button class="category-action edit" onclick="editCategory('${category.id}')" title="Editar categoria">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="category-action delete" onclick="confirmDeleteCategory('${category.id}')" title="Excluir categoria">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
+            <div class="category-name">${category.name}</div>
+            <div class="category-count">${categoryCount} tarefa${categoryCount !== 1 ? 's' : ''}</div>
         </div>
     `;
-    
-    // Event listener para selecionar categoria
+
+    // Event listener para selecionar categoria (só se não estiver arrastando)
     categoryDiv.addEventListener('click', (e) => {
-        if (!e.target.closest('.category-actions')) {
+        if (!e.target.closest('.category-actions') && !draggedElement) {
             selectCategory(category.id, category.name);
         }
     });
-    
+
     return categoryDiv;
 }
 
@@ -578,17 +613,16 @@ function createCategoryElement(category) {
  */
 function renderTasks() {
     if (!elements.tasksContainer) return;
-    
+
     const filteredTasks = getFilteredTasks();
-    
-    // Limpar container
+
     elements.tasksContainer.innerHTML = '';
-    
+
     if (filteredTasks.length === 0) {
         elements.tasksContainer.appendChild(elements.emptyState);
         return;
     }
-    
+
     filteredTasks.forEach(task => {
         const taskElement = createTaskElement(task);
         elements.tasksContainer.appendChild(taskElement);
@@ -601,10 +635,10 @@ function renderTasks() {
 function createTaskElement(task) {
     const category = categories.find(cat => cat.id === task.categoryId);
     const categoryName = category ? category.name : 'Sem categoria';
-    
+
     const taskDiv = document.createElement('div');
     taskDiv.className = `task-item priority-${task.priority} ${task.completed ? 'completed' : ''}`;
-    
+
     // Formatação da data de vencimento
     let dueDateHtml = '';
     if (task.dueDate) {
@@ -612,13 +646,13 @@ function createTaskElement(task) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         dueDate.setHours(0, 0, 0, 0);
-        
+
         const isOverdue = dueDate < today && !task.completed;
         const isToday = dueDate.getTime() === today.getTime();
-        
+
         let dateClass = '';
         let dateText = dueDate.toLocaleDateString('pt-BR');
-        
+
         if (isOverdue) {
             dateClass = 'overdue';
             dateText = `⚠️ ${dateText}`;
@@ -626,14 +660,14 @@ function createTaskElement(task) {
             dateClass = 'today';
             dateText = `📅 Hoje`;
         }
-        
+
         dueDateHtml = `<span class="task-due-date ${dateClass}"><i class="fas fa-calendar"></i> ${dateText}</span>`;
     }
-    
+
     taskDiv.innerHTML = `
-        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
+        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}
                onchange="toggleTaskComplete('${task.id}', this.checked)">
-        
+
         <div class="task-content">
             <div class="task-title">${task.title}</div>
             ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
@@ -643,7 +677,7 @@ function createTaskElement(task) {
                 ${dueDateHtml}
             </div>
         </div>
-        
+
         <div class="task-actions">
             <button class="task-action edit" onclick="editTask('${task.id}')" title="Editar tarefa">
                 <i class="fas fa-edit"></i>
@@ -653,7 +687,7 @@ function createTaskElement(task) {
             </button>
         </div>
     `;
-    
+
     return taskDiv;
 }
 
@@ -662,12 +696,12 @@ function createTaskElement(task) {
  */
 function getFilteredTasks() {
     let filteredTasks = tasks;
-    
-    // Filtrar por categoria se uma estiver selecionada
+
+    // Filtrar por categoria selecionada
     if (selectedCategoryId) {
         filteredTasks = filteredTasks.filter(task => task.categoryId === selectedCategoryId);
     }
-    
+
     // Filtrar por status
     switch (currentFilter) {
         case 'completed':
@@ -678,7 +712,7 @@ function getFilteredTasks() {
             break;
         // 'all' não precisa de filtro adicional
     }
-    
+
     return filteredTasks;
 }
 
@@ -687,11 +721,11 @@ function getFilteredTasks() {
  */
 function updateStatistics() {
     if (!elements.totalTasks) return;
-    
+
     const total = tasks.length;
     const completed = tasks.filter(task => task.completed).length;
     const pending = total - completed;
-    
+
     elements.totalTasks.textContent = total;
     elements.completedTasks.textContent = completed;
     elements.pendingTasks.textContent = pending;
@@ -702,20 +736,124 @@ function updateStatistics() {
  */
 function updateCategorySelect() {
     if (!elements.taskCategory) return;
-    
+
     const currentValue = elements.taskCategory.value;
     elements.taskCategory.innerHTML = '';
-    
+
     categories.forEach(category => {
         const option = document.createElement('option');
         option.value = category.id;
         option.textContent = category.name;
         elements.taskCategory.appendChild(option);
     });
-    
+
     // Restaurar valor selecionado se ainda existe
     if (currentValue && categories.find(cat => cat.id === currentValue)) {
         elements.taskCategory.value = currentValue;
+    }
+}
+
+// =====================================
+// FUNÇÕES DE DRAG-AND-DROP
+// =====================================
+
+/**
+ * Configura o sistema de drag-and-drop para os cards
+ */
+function setupDragAndDrop() {
+    const categoryCards = document.querySelectorAll('.category-card');
+
+    categoryCards.forEach(card => {
+        // Drag start - quando começar a arrastar
+        card.addEventListener('dragstart', (e) => {
+            draggedElement = card;
+            draggedCategoryId = card.dataset.categoryId;
+            card.classList.add('dragging');
+
+            console.log('🎯 Arrastando categoria:', draggedCategoryId);
+
+            // Configurar dados de transferência
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', card.outerHTML);
+        });
+
+        // Drag end - quando terminar de arrastar
+        card.addEventListener('dragend', (e) => {
+            card.classList.remove('dragging');
+            draggedElement = null;
+            draggedCategoryId = null;
+
+            // Remover todos os indicadores visuais
+            categoryCards.forEach(c => c.classList.remove('drag-over'));
+
+            console.log('✅ Drag finalizado');
+        });
+
+        // Drag over - quando passar sobre outro elemento
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            if (card !== draggedElement) {
+                card.classList.add('drag-over');
+            }
+        });
+
+        // Drag leave - quando sair de cima de outro elemento
+        card.addEventListener('dragleave', (e) => {
+            card.classList.remove('drag-over');
+        });
+
+        // Drop - quando soltar o elemento
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+
+            if (card !== draggedElement && draggedElement) {
+                handleDrop(card.dataset.categoryId);
+            }
+        });
+    });
+}
+
+/**
+ * Manipula o evento de drop (soltar) para reordenar as categorias
+ */
+async function handleDrop(targetCategoryId) {
+    if (!draggedCategoryId || draggedCategoryId === targetCategoryId) return;
+
+    console.log('📦 Drop - Origem:', draggedCategoryId, 'Destino:', targetCategoryId);
+
+    try {
+        // Encontrar índices das categorias
+        const draggedIndex = categories.findIndex(cat => cat.id === draggedCategoryId);
+        const targetIndex = categories.findIndex(cat => cat.id === targetCategoryId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        // Criar nova ordem temporária para visualização imediata
+        const reorderedCategories = [...categories];
+        const [draggedCategory] = reorderedCategories.splice(draggedIndex, 1);
+        reorderedCategories.splice(targetIndex, 0, draggedCategory);
+
+        // Atualizar array local temporariamente
+        categories = reorderedCategories;
+
+        // Re-renderizar imediatamente para feedback visual
+        renderCategories();
+
+        // Criar array com nova ordem de IDs
+        const newOrder = reorderedCategories.map(cat => cat.id);
+
+        // Salvar nova ordem no Firebase
+        await updateCategoriesOrder(newOrder);
+
+        console.log('🔄 Nova ordem salva:', newOrder);
+
+    } catch (error) {
+        console.error('❌ Erro ao reordenar categorias:', error);
+        // Em caso de erro, re-renderizar para reverter mudança visual
+        renderCategories();
     }
 }
 
@@ -724,42 +862,53 @@ function updateCategorySelect() {
 // =====================================
 
 /**
- * Seleciona uma categoria
+ * Seleciona uma categoria e mostra suas tarefas
  */
 function selectCategory(categoryId, categoryName) {
     selectedCategoryId = categoryId;
     elements.categoryTitle.textContent = categoryName;
-    
+
+    // Mostrar seção de tarefas
+    elements.tasksSection.classList.remove('hidden');
+
     // Atualizar visual das categorias
     document.querySelectorAll('.category-card').forEach(card => {
         card.classList.remove('active');
     });
-    
-    event.currentTarget.classList.add('active');
-    
+
+    // Marcar categoria ativa
+    const activeCard = document.querySelector(`[data-category-id="${categoryId}"]`);
+    if (activeCard) {
+        activeCard.classList.add('active');
+    }
+
     // Re-renderizar tarefas
     renderTasks();
+
+    console.log('📂 Categoria selecionada:', categoryName, '(ID:', categoryId, ')');
 }
 
 /**
- * Define o filtro ativo
+ * Define o filtro ativo para as tarefas
  */
 function setActiveFilter(filter) {
     currentFilter = filter;
-    
+
     // Atualizar visual dos filtros
     elements.filterBtns.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === filter);
     });
-    
+
     // Re-renderizar tarefas
     renderTasks();
+
+    console.log('🔍 Filtro ativo:', filter);
 }
 
 /**
  * Alterna o estado de conclusão de uma tarefa
  */
-window.toggleTaskComplete = async function(taskId, completed) {
+window.toggleTaskComplete = async function (taskId, completed) {
     try {
         await updateTaskInFirebase(taskId, { completed });
     } catch (error) {
@@ -794,14 +943,14 @@ function getPriorityText(priority) {
 function openCategoryModal(categoryId = null) {
     isEditingCategory = !!categoryId;
     editingCategoryId = categoryId;
-    
+
     if (isEditingCategory) {
         const category = categories.find(cat => cat.id === categoryId);
         if (category) {
             elements.categoryModalTitle.textContent = 'Editar Categoria';
             elements.categoryName.value = category.name;
             elements.categoryIcon.value = category.icon;
-            
+
             // Selecionar cor
             const colorRadio = document.querySelector(`input[name="categoryColor"][value="${category.color}"]`);
             if (colorRadio) {
@@ -813,7 +962,7 @@ function openCategoryModal(categoryId = null) {
         elements.categoryForm.reset();
         document.querySelector('input[name="categoryColor"]:first-child').checked = true;
     }
-    
+
     elements.categoryModal.classList.remove('hidden');
     elements.categoryName.focus();
 }
@@ -829,33 +978,33 @@ function closeCategoryModal() {
 }
 
 /**
- * Manipula o envio do formulário de categoria - CORRIGIDO
+ * Manipula o envio do formulário de categoria
  */
 async function handleCategorySubmit(e) {
     if (e) e.preventDefault();
-    
+
     // Coletar dados do formulário
     const name = elements.categoryName.value.trim();
     const icon = elements.categoryIcon.value;
     const colorRadio = document.querySelector('input[name="categoryColor"]:checked');
     const color = colorRadio ? colorRadio.value : 'var(--color-primary)';
-    
+
     // Validação básica
     if (!name) {
         elements.categoryName.focus();
         showFirebaseStatus('Por favor, insira um nome para a categoria', 'error');
         return;
     }
-    
+
     const categoryData = { name, icon, color };
-    
+
     try {
         if (isEditingCategory) {
             await updateCategoryInFirebase(editingCategoryId, categoryData);
         } else {
             await addCategoryToFirebase(categoryData);
         }
-        
+
         closeCategoryModal();
     } catch (error) {
         console.error('Erro ao salvar categoria:', error);
@@ -865,21 +1014,21 @@ async function handleCategorySubmit(e) {
 /**
  * Edita uma categoria
  */
-window.editCategory = function(categoryId) {
+window.editCategory = function (categoryId) {
     openCategoryModal(categoryId);
 };
 
 /**
  * Confirma exclusão de categoria
  */
-window.confirmDeleteCategory = function(categoryId) {
+window.confirmDeleteCategory = function (categoryId) {
     const category = categories.find(cat => cat.id === categoryId);
     if (category) {
         const taskCount = tasks.filter(task => task.categoryId === categoryId).length;
-        const message = taskCount > 0 
+        const message = taskCount > 0
             ? `Tem certeza que deseja excluir a categoria "${category.name}"? Isso também excluirá ${taskCount} tarefa${taskCount !== 1 ? 's' : ''} relacionada${taskCount !== 1 ? 's' : ''}.`
             : `Tem certeza que deseja excluir a categoria "${category.name}"?`;
-        
+
         showConfirmModal(message, () => deleteCategoryFromFirebase(categoryId));
     }
 };
@@ -894,7 +1043,7 @@ window.confirmDeleteCategory = function(categoryId) {
 function openTaskModal(taskId = null) {
     isEditingTask = !!taskId;
     editingTaskId = taskId;
-    
+
     if (isEditingTask) {
         const task = tasks.find(t => t.id === taskId);
         if (task) {
@@ -908,13 +1057,13 @@ function openTaskModal(taskId = null) {
     } else {
         elements.taskModalTitle.textContent = 'Nova Tarefa';
         elements.taskForm.reset();
-        
+
         // Selecionar categoria atual se uma estiver selecionada
         if (selectedCategoryId) {
             elements.taskCategory.value = selectedCategoryId;
         }
     }
-    
+
     elements.taskModal.classList.remove('hidden');
     elements.taskTitle.focus();
 }
@@ -930,40 +1079,40 @@ function closeTaskModal() {
 }
 
 /**
- * Manipula o envio do formulário de tarefa - CORRIGIDO
+ * Manipula o envio do formulário de tarefa
  */
 async function handleTaskSubmit(e) {
     if (e) e.preventDefault();
-    
+
     // Coletar dados do formulário
     const title = elements.taskTitle.value.trim();
     const description = elements.taskDescription.value.trim();
     const categoryId = elements.taskCategory.value;
     const priority = elements.taskPriority.value;
     const dueDate = elements.taskDueDate.value || null;
-    
+
     // Validação básica
     if (!title) {
         elements.taskTitle.focus();
         showFirebaseStatus('Por favor, insira um título para a tarefa', 'error');
         return;
     }
-    
+
     if (!categoryId) {
         elements.taskCategory.focus();
         showFirebaseStatus('Por favor, selecione uma categoria', 'error');
         return;
     }
-    
+
     const taskData = { title, description, categoryId, priority, dueDate };
-    
+
     try {
         if (isEditingTask) {
             await updateTaskInFirebase(editingTaskId, taskData);
         } else {
             await addTaskToFirebase(taskData);
         }
-        
+
         closeTaskModal();
     } catch (error) {
         console.error('Erro ao salvar tarefa:', error);
@@ -973,14 +1122,14 @@ async function handleTaskSubmit(e) {
 /**
  * Edita uma tarefa
  */
-window.editTask = function(taskId) {
+window.editTask = function (taskId) {
     openTaskModal(taskId);
 };
 
 /**
  * Confirma exclusão de tarefa
  */
-window.confirmDeleteTask = function(taskId) {
+window.confirmDeleteTask = function (taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
         showConfirmModal(
@@ -1070,10 +1219,10 @@ function showFirebaseStatus(message, type = 'success') {
         statusElement.className = 'firebase-status';
         document.body.appendChild(statusElement);
     }
-    
+
     statusElement.textContent = message;
     statusElement.className = `firebase-status ${type} show`;
-    
+
     // Esconder após 3 segundos
     setTimeout(() => {
         statusElement.classList.remove('show');
@@ -1115,28 +1264,36 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         tasks,
         db,
         elements,
+        selectedCategoryId,
+        draggedCategoryId,
         addCategoryToFirebase,
         addTaskToFirebase,
         updateTaskInFirebase,
         deleteTaskFromFirebase,
+        updateCategoriesOrder,
         showFirebaseStatus
     };
     console.log('🔧 Modo debug ativado - TodoApp disponível no console');
 }
 
-console.log('📱 Todo List Firebase App carregado com sucesso!');
+console.log('📱 Todo List Firebase App com Cards e Drag-and-Drop carregado com sucesso!');
 
-/* 
+/*
  * =====================================
  * FIM DO ARQUIVO APP.JS
  * =====================================
- * 
+ *
  * Este arquivo contém toda a lógica da aplicação Todo List
+ * com layout de cards responsivo e funcionalidade drag-and-drop
  * integrada ao Firebase Firestore com sincronização em tempo real.
- * 
- * Para usar a aplicação:
- * 1. Configure as regras do Firestore conforme comentado no início
- * 2. Abra index.html em um servidor web
- * 3. A aplicação se conectará automaticamente ao Firebase
- * 4. Dados são sincronizados em tempo real entre todas as sessões
+ *
+ * FUNCIONALIDADES IMPLEMENTADAS:
+ * ✅ Grid responsivo de cards (4-3-2-1 por linha)
+ * ✅ Drag-and-drop funcional para reordenar categorias
+ * ✅ Persistência da ordem no Firebase (campo 'order')
+ * ✅ Cards com design escuro e hover effects
+ * ✅ Seção de tarefas visível apenas com categoria selecionada
+ * ✅ Todas as funcionalidades Firebase originais mantidas
+ * ✅ Interface responsiva e acessível
+ * ✅ Animações suaves e feedback visual
  */
