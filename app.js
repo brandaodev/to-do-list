@@ -1,73 +1,44 @@
 /*
  * =====================================
- * TODO LIST FIREBASE - LÓGICA PRINCIPAL
+ * TODO LIST FIREBASE - VERSÃO FINAL
  * =====================================
- * 
- * Aplicação completa de Todo List integrada ao Firebase Firestore
- * 
- * FUNCIONALIDADES PRINCIPAIS:
- * - Integração completa com Firebase Firestore v12.3.0
- * - CRUD de categorias com sincronização em tempo real
- * - CRUD de tarefas com relacionamento às categorias
- * - Filtros dinâmicos (todas, pendentes, concluídas)
- * - Estatísticas em tempo real
- * - Interface responsiva com tema escuro
- * - Modais para adicionar/editar categorias e tarefas
- * - Confirmação de exclusão
- * - Indicadores de prioridade e status
- * 
- * REGRAS FIRESTORE RECOMENDADAS:
- * 
- * rules_version = '2';
- * service cloud.firestore {
- *   match /databases/{database}/documents {
- *     match /categories/{document} {
- *       allow read, write: if true;
- *     }
- *     match /tasks/{document} {
- *       allow read, write: if true;
- *     }
- *   }
- * }
- * 
- * COLEÇÕES FIRESTORE:
- * - categories: {id, name, icon, color, createdAt}
- * - tasks: {id, title, description, categoryId, priority, dueDate, completed, createdAt, updatedAt}
- * 
- * Autor: Sistema Todo List Firebase
- * Data: 2025
+ *
+ * ✅ Aplicação completa com todas as funcionalidades:
+ * - Cards de categorias com contadores corretos
+ * - Edição de categoria (botão ✏️ + double-click)
+ * - CRUD completo de tarefas
+ * - Múltiplas categorias por tarefa
+ * - Drag-and-drop para reordenar
+ * - Tarefas recorrentes semanais
+ * - Sincronização em tempo real
+ * - Interface responsiva
  */
 
 // =====================================
 // IMPORTAÇÕES FIREBASE CDN v12.3.0
 // =====================================
 
-// Importação do Firebase App (Core)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-
-// Importação das funções do Firestore
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs, 
-    doc, 
-    updateDoc, 
-    deleteDoc, 
-    onSnapshot, 
-    query, 
-    orderBy, 
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    query,
+    orderBy,
     where,
     serverTimestamp,
-    enableNetwork,
-    disableNetwork
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 // =====================================
 // CONFIGURAÇÃO FIREBASE
 // =====================================
 
-// Configuração Firebase fornecida pelo usuário
 const firebaseConfig = {
     apiKey: "AIzaSyBGYD8QDpa5cLCUFoAF4SSHFFOywdElamk",
     authDomain: "todo-lojapronta.firebaseapp.com",
@@ -77,1110 +48,1236 @@ const firebaseConfig = {
     appId: "1:922858854551:web:140d02455a461e7425f1d2"
 };
 
-// Inicialização do Firebase
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
-
-// Inicialização do Firestore
 const db = getFirestore(app);
 
+console.log('🔥 Firebase inicializado');
+
 // =====================================
-// VARIÁVEIS GLOBAIS DA APLICAÇÃO
+// CONSTANTES GLOBAIS
 // =====================================
 
-// Estado da aplicação
-let categories = [];
-let tasks = [];
-let currentFilter = 'all';
-let selectedCategoryId = null;
-let isEditingCategory = false;
-let isEditingTask = false;
-let editingCategoryId = null;
-let editingTaskId = null;
+const COLLECTIONS = {
+    CATEGORIES: 'categories',
+    TASKS: 'tasks'
+};
 
-// Referências dos elementos DOM
-let elements = {};
+const DAYS_OF_WEEK = [
+    'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
+    'Quinta-feira', 'Sexta-feira', 'Sábado'
+];
 
-// Listeners do Firestore para cleanup
-let categoriesListener = null;
-let tasksListener = null;
+const AVAILABLE_ICONS = [
+    '👥', '👤', '💼', '🛒', '📚', '💪', '🎯', '🏠', '🎨', '📱',
+    '🍳', '🚗', '💰', '🎵', '📷', '🎮', '📝', '⭐', '🔥', '💡',
+    '🌟', '🎉', '🏆', '📊', '🔧', '⚙️', '🌱'
+];
 
-// Flag para controlar se dados foram carregados
-let categoriesLoaded = false;
-let tasksLoaded = false;
+const DEFAULT_CATEGORIES = [
+    { id: 'candida-oliveira', name: 'Candida Oliveira', icon: '👥' },
+    { id: 'sonilda-pires', name: 'Sonilda Pires', icon: '👥' },
+    { id: 'natalia-carnauba', name: 'Natália Carnaúba', icon: '👥' },
+    { id: 'joselita-sanchez', name: 'Joselita Sanchez', icon: '👥' },
+    { id: 'edson-mori', name: 'Edson Mori', icon: '👥' }
+];
+
+// =====================================
+// CLASSE PRINCIPAL DA APLICAÇÃO
+// =====================================
+
+class TodoApp {
+    constructor() {
+        console.log('🚀 Inicializando TodoApp...');
+
+        // Estado da aplicação
+        this.categories = [];
+        this.tasks = {};
+        this.currentCategory = null;
+        this.editingCategory = null;
+        this.editingTask = null;
+        this.selectedIcon = null;
+        this.deleteCallback = null;
+
+        // Estado do drag-and-drop
+        this.draggedCard = null;
+
+        // Inicializar
+        this.initializeElements();
+        this.bindEvents();
+        this.initializeFirebase();
+    }
+
+    /**
+     * ========================================
+     * INICIALIZAÇÃO DOS ELEMENTOS DOM
+     * ========================================
+     */
+    initializeElements() {
+        console.log('📋 Inicializando elementos DOM...');
+
+        // Elementos principais
+        this.categoriesGridEl = document.getElementById('categoriesGrid');
+        this.tasksSectionEl = document.getElementById('tasksSection');
+        this.categoryTitleEl = document.getElementById('categoryTitle');
+        this.tasksListEl = document.getElementById('tasksList');
+
+        // Estatísticas
+        this.totalTasksEl = document.getElementById('totalTasks');
+        this.completedTasksEl = document.getElementById('completedTasks');
+        this.pendingTasksEl = document.getElementById('pendingTasks');
+
+        // Botões
+        this.addCategoryBtnEl = document.getElementById('addCategoryBtn');
+        this.addTaskBtnEl = document.getElementById('addTaskBtn');
+
+        // Input rápido
+        this.quickTaskInputEl = document.getElementById('quickTaskInput');
+
+        // Modais
+        this.categoryModalEl = document.getElementById('categoryModal');
+        this.taskModalEl = document.getElementById('taskModal');
+        this.deleteModalEl = document.getElementById('deleteModal');
+
+        // Elementos do modal de categoria
+        this.categoryModalTitleEl = document.getElementById('categoryModalTitle');
+        this.categoryNameInputEl = document.getElementById('categoryNameInput');
+        this.iconGridEl = document.getElementById('iconGrid');
+        this.closeCategoryModalEl = document.getElementById('closeCategoryModal');
+        this.cancelCategoryBtnEl = document.getElementById('cancelCategoryBtn');
+        this.saveCategoryBtnEl = document.getElementById('saveCategoryBtn');
+
+        // Elementos do modal de tarefa
+        this.taskModalTitleEl = document.getElementById('taskModalTitle');
+        this.taskTextInputEl = document.getElementById('taskTextInput');
+        this.isRecurringCheckboxEl = document.getElementById('isRecurringCheckbox');
+        this.dayOfWeekGroupEl = document.getElementById('dayOfWeekGroup');
+        this.dayOfWeekSelectEl = document.getElementById('dayOfWeekSelect');
+        this.closeTaskModalEl = document.getElementById('closeTaskModal');
+        this.cancelTaskBtnEl = document.getElementById('cancelTaskBtn');
+        this.saveTaskBtnEl = document.getElementById('saveTaskBtn');
+
+        // Múltiplas categorias
+        this.addMultipleBtnEl = document.getElementById('addMultipleBtn');
+        this.multipleCategoriesGroupEl = document.getElementById('multipleCategoriesGroup');
+        this.categoriesListEl = document.getElementById('categoriesList');
+
+        // Elementos do modal de exclusão
+        this.deleteMessageEl = document.getElementById('deleteMessage');
+        this.deleteInfoEl = document.getElementById('deleteInfo');
+        this.closeDeleteModalEl = document.getElementById('closeDeleteModal');
+        this.cancelDeleteBtnEl = document.getElementById('cancelDeleteBtn');
+        this.confirmDeleteBtnEl = document.getElementById('confirmDeleteBtn');
+
+        // Elementos de erro
+        this.categoryNameErrorEl = document.getElementById('categoryNameError');
+        this.iconErrorEl = document.getElementById('iconError');
+        this.taskTextErrorEl = document.getElementById('taskTextError');
+        this.dayOfWeekErrorEl = document.getElementById('dayOfWeekError');
+
+        console.log('✅ Elementos DOM inicializados');
+    }
+
+    /**
+     * ========================================
+     * CONFIGURAÇÃO DE EVENT LISTENERS
+     * ========================================
+     */
+    bindEvents() {
+        console.log('🔗 Configurando event listeners...');
+
+        // Botão de adicionar categoria
+        this.addCategoryBtnEl?.addEventListener('click', () => {
+            console.log('➕ Abrindo modal de categoria');
+            this.openCategoryModal();
+        });
+
+        // Botão de adicionar tarefa
+        this.addTaskBtnEl?.addEventListener('click', () => {
+            console.log('➕ Abrindo modal de tarefa');
+            this.openTaskModal();
+        });
+
+        // Input rápido de tarefa
+        this.quickTaskInputEl?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const text = e.target.value.trim();
+                if (text && this.currentCategory) {
+                    console.log('⚡ Adicionando tarefa rápida:', text);
+                    this.addTaskToFirebase(this.currentCategory.id, text);
+                    e.target.value = '';
+                }
+            }
+        });
+
+        // Checkbox de recorrência
+        this.isRecurringCheckboxEl?.addEventListener('change', (e) => {
+            this.toggleDayOfWeekSelector(e.target.checked);
+        });
+
+        // Botão múltiplas categorias
+        this.addMultipleBtnEl?.addEventListener('click', () => {
+            this.toggleMultipleCategoriesSelector();
+        });
+
+        // Eventos dos modais
+        this.bindModalEvents();
+
+        console.log('✅ Event listeners configurados');
+    }
+
+    /**
+     * ========================================
+     * EVENTOS DOS MODAIS
+     * ========================================
+     */
+    bindModalEvents() {
+        // Modal de categoria
+        this.closeCategoryModalEl?.addEventListener('click', () => this.closeCategoryModal());
+        this.cancelCategoryBtnEl?.addEventListener('click', () => this.closeCategoryModal());
+        this.saveCategoryBtnEl?.addEventListener('click', () => this.saveCategory());
+
+        // Modal de tarefa
+        this.closeTaskModalEl?.addEventListener('click', () => this.closeTaskModal());
+        this.cancelTaskBtnEl?.addEventListener('click', () => this.closeTaskModal());
+        this.saveTaskBtnEl?.addEventListener('click', () => this.saveTask());
+
+        // Modal de exclusão
+        this.closeDeleteModalEl?.addEventListener('click', () => this.closeDeleteModal());
+        this.cancelDeleteBtnEl?.addEventListener('click', () => this.closeDeleteModal());
+        this.confirmDeleteBtnEl?.addEventListener('click', () => this.executeDelete());
+
+        // Fechar ao clicar no overlay
+        [this.categoryModalEl, this.taskModalEl, this.deleteModalEl].forEach(modal => {
+            modal?.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    /**
+     * ========================================
+     * INICIALIZAÇÃO DO FIREBASE
+     * ========================================
+     */
+    async initializeFirebase() {
+        try {
+            console.log('🔥 Configurando Firebase...');
+
+            // Garantir categorias padrão
+            await this.ensureDefaultCategories();
+
+            // Garantir campo 'order'
+            await this.ensureCategoryOrder();
+
+            // Configurar listeners em tempo real
+            this.setupRealtimeListeners();
+
+            // Verificar tarefas recorrentes
+            await this.checkAndRenewRecurringTasks();
+
+            console.log('✅ Firebase configurado com sucesso!');
+
+        } catch (error) {
+            console.error('❌ Erro ao inicializar Firebase:', error);
+            this.showError('Erro ao conectar com Firebase.');
+        }
+    }
+
+    /**
+     * ========================================
+     * GARANTIR CATEGORIAS PADRÃO
+     * ========================================
+     */
+    async ensureDefaultCategories() {
+        const snapshot = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+
+        if (snapshot.empty) {
+            console.log('📁 Criando categorias padrão...');
+
+            for (let i = 0; i < DEFAULT_CATEGORIES.length; i++) {
+                const category = DEFAULT_CATEGORIES[i];
+                await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
+                    ...category,
+                    order: i,
+                    createdAt: serverTimestamp()
+                });
+            }
+
+            console.log('✅ Categorias padrão criadas');
+        }
+    }
+
+    /**
+     * ========================================
+     * GARANTIR CAMPO ORDER
+     * ========================================
+     */
+    async ensureCategoryOrder() {
+        const snapshot = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+        const batch = writeBatch(db);
+        let needsUpdate = false;
+
+        snapshot.docs.forEach((docSnapshot, index) => {
+            const data = docSnapshot.data();
+            if (data.order === undefined) {
+                const docRef = doc(db, COLLECTIONS.CATEGORIES, docSnapshot.id);
+                batch.update(docRef, { order: index });
+                needsUpdate = true;
+            }
+        });
+
+        if (needsUpdate) {
+            await batch.commit();
+            console.log('🔄 Campo order adicionado');
+        }
+    }
+
+    /**
+     * ========================================
+     * LISTENERS EM TEMPO REAL
+     * ========================================
+     */
+    setupRealtimeListeners() {
+        console.log('📶 Configurando listeners em tempo real...');
+
+        // Listener para categorias
+        const categoriesQuery = query(
+            collection(db, COLLECTIONS.CATEGORIES),
+            orderBy('order', 'asc')
+        );
+
+        onSnapshot(categoriesQuery, (snapshot) => {
+            console.log('🔄 Categorias atualizadas, total:', snapshot.docs.length);
+
+            this.categories = [];
+            snapshot.forEach((doc) => {
+                this.categories.push({
+                    firebaseId: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            console.log('📁 Categorias carregadas:', this.categories.map(c => c.name));
+
+            // Renderizar cards
+            this.renderCategoryCards();
+        }, (error) => {
+            console.error('❌ Erro no listener de categorias:', error);
+        });
+
+        // Listener para tarefas
+        const tasksQuery = query(
+            collection(db, COLLECTIONS.TASKS),
+            orderBy('createdAt', 'desc')
+        );
+
+        onSnapshot(tasksQuery, (snapshot) => {
+            console.log('🔄 Tarefas atualizadas, total:', snapshot.docs.length);
+
+            this.tasks = {};
+            snapshot.forEach((doc) => {
+                const task = {
+                    firebaseId: doc.id,
+                    ...doc.data()
+                };
+
+                if (!this.tasks[task.categoryId]) {
+                    this.tasks[task.categoryId] = [];
+                }
+                this.tasks[task.categoryId].push(task);
+            });
+
+            console.log('📋 Estrutura this.tasks:', Object.keys(this.tasks));
+            Object.keys(this.tasks).forEach(categoryId => {
+                console.log(`  - categoryId "${categoryId}": ${this.tasks[categoryId].length} tarefa(s)`);
+            });
+
+            // Atualizar estatísticas globais
+            this.updateGlobalStats();
+
+            // Renderizar cards (para atualizar contadores)
+            this.renderCategoryCards();
+
+            // Renderizar tarefas se categoria selecionada
+            if (this.currentCategory) {
+                this.renderTasks();
+            }
+
+        }, (error) => {
+            console.error('❌ Erro no listener de tarefas:', error);
+        });
+
+        console.log('✅ Listeners configurados');
+    }
+
+    /**
+     * ========================================
+     * ATUALIZAÇÃO DAS ESTATÍSTICAS GLOBAIS
+     * ========================================
+     */
+    updateGlobalStats() {
+        let totalTasks = 0;
+        let completedTasks = 0;
+
+        // Contar tarefas de TODAS as categorias
+        Object.values(this.tasks).forEach(categoryTasks => {
+            categoryTasks.forEach(task => {
+                totalTasks++;
+                if (task.completed) completedTasks++;
+            });
+        });
+
+        const pendingTasks = totalTasks - completedTasks;
+
+        // Atualizar elementos DOM
+        if (this.totalTasksEl) this.totalTasksEl.textContent = totalTasks;
+        if (this.completedTasksEl) this.completedTasksEl.textContent = completedTasks;
+        if (this.pendingTasksEl) this.pendingTasksEl.textContent = pendingTasks;
+
+        console.log(`📊 Stats globais: ${totalTasks} total, ${pendingTasks} pendentes, ${completedTasks} concluídas`);
+    }
+
+    /**
+     * ========================================
+     * RENDERIZAÇÃO DOS CARDS DE CATEGORIAS
+     * ========================================
+     */
+    renderCategoryCards() {
+        if (!this.categoriesGridEl) return;
+
+        console.log('🎴 Renderizando', this.categories.length, 'cards de categorias...');
+
+        this.categoriesGridEl.innerHTML = '';
+
+        // Estado vazio
+        if (this.categories.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.innerHTML = `
+                <div class="empty-icon">📁</div>
+                <h3 class="empty-title">Nenhuma categoria</h3>
+                <p class="empty-description">Clique em "+Nova Categoria" para começar.</p>
+            `;
+            this.categoriesGridEl.appendChild(emptyState);
+            return;
+        }
+
+        // Renderizar cada categoria
+        this.categories.forEach((category, index) => {
+            const card = this.createCategoryCard(category);
+            this.categoriesGridEl.appendChild(card);
+
+            // Debug do contador
+            const categoryTasks = this.tasks[category.id] || [];
+            console.log(`🎴 Card ${index + 1}: "${category.name}" → ${categoryTasks.length} tarefa(s)`);
+        });
+
+        console.log('✅ Cards renderizados');
+    }
+
+    /**
+     * ========================================
+     * CRIAÇÃO DO CARD DE CATEGORIA
+     * ========================================
+     * ✅ CORREÇÃO: Edição de categoria funcionando
+     */
+    createCategoryCard(category) {
+        const categoryTasks = this.tasks[category.id] || [];
+        const totalTasks = categoryTasks.length;
+
+        // Debug detalhado
+        console.log(`🔍 Criando card "${category.name}" (id: "${category.id}") → ${totalTasks} tarefa(s)`);
+
+        // Criar elemento do card
+        const card = document.createElement('div');
+        card.className = 'category-card';
+        card.draggable = true;
+        card.dataset.categoryId = category.id;
+        card.dataset.firebaseId = category.firebaseId;
+
+        // Marcar como ativo se for a categoria atual
+        if (this.currentCategory && this.currentCategory.id === category.id) {
+            card.classList.add('active');
+        }
+
+        // Conteúdo do card
+        card.innerHTML = `
+            <div class="card-header">
+                <span class="drag-handle">☰</span>
+                <button class="edit-card-btn" title="Editar categoria">✏️</button>
+                <button class="delete-card-btn" title="Excluir categoria">&times;</button>
+            </div>
+
+            <div class="card-icon">${category.icon}</div>
+            <div class="card-name">${category.name}</div>
+            <div class="card-count">${totalTasks} tarefa${totalTasks !== 1 ? 's' : ''}</div>
+        `;
+
+        // Event listener para seleção
+        card.addEventListener('click', (e) => {
+            if (e.target.classList.contains('drag-handle') ||
+                e.target.classList.contains('delete-card-btn') ||
+                e.target.classList.contains('edit-card-btn')) {
+                return;
+            }
+
+            console.log('🎯 Categoria selecionada:', category.name);
+            this.selectCategory(category);
+        });
+
+        // ✅ CORREÇÃO: Event listener para edição
+        const editBtn = card.querySelector('.edit-card-btn');
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('✏️ Editando categoria:', category.name);
+            this.openCategoryModal(category);
+        });
+
+        // Event listener para exclusão
+        const deleteBtn = card.querySelector('.delete-card-btn');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.confirmDeleteCategory(category);
+        });
+
+        // ✅ CORREÇÃO: Double-click para editar
+        card.addEventListener('dblclick', (e) => {
+            console.log('🔄 Edição rápida da categoria:', category.name);
+            this.openCategoryModal(category);
+        });
+
+        // Drag-and-drop
+        this.addDragDropEvents(card);
+
+        return card;
+    }
+
+    /**
+     * ========================================
+     * DRAG-AND-DROP
+     * ========================================
+     */
+    addDragDropEvents(card) {
+        card.addEventListener('dragstart', (e) => {
+            const isFromHandle = e.target.classList.contains('drag-handle') ||
+                e.target.closest('.drag-handle');
+
+            if (!isFromHandle) {
+                e.preventDefault();
+                return;
+            }
+
+            this.draggedCard = card;
+            card.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', card.dataset.firebaseId);
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            this.draggedCard = null;
+        });
+
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            if (this.draggedCard && this.draggedCard !== card) {
+                const afterElement = this.getDragAfterElement(this.categoriesGridEl, e.clientY);
+
+                if (afterElement == null) {
+                    this.categoriesGridEl.appendChild(this.draggedCard);
+                } else {
+                    this.categoriesGridEl.insertBefore(this.draggedCard, afterElement);
+                }
+            }
+        });
+
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.saveNewCategoryOrder();
+        });
+    }
+
+    getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.category-card:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    async saveNewCategoryOrder() {
+        try {
+            console.log('🔄 Salvando nova ordem das categorias...');
+
+            const cards = [...this.categoriesGridEl.querySelectorAll('.category-card')];
+            const batch = writeBatch(db);
+
+            cards.forEach((card, index) => {
+                const firebaseId = card.dataset.firebaseId;
+                if (firebaseId) {
+                    const docRef = doc(db, COLLECTIONS.CATEGORIES, firebaseId);
+                    batch.update(docRef, { order: index });
+                }
+            });
+
+            await batch.commit();
+            console.log('✅ Nova ordem salva');
+
+        } catch (error) {
+            console.error('❌ Erro ao salvar ordem:', error);
+        }
+    }
+
+    /**
+     * ========================================
+     * SELEÇÃO DE CATEGORIA
+     * ========================================
+     */
+    selectCategory(category) {
+        this.currentCategory = category;
+
+        // Atualizar classes ativas
+        document.querySelectorAll('.category-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
+        const activeCard = document.querySelector(`[data-category-id="${category.id}"]`);
+        if (activeCard) {
+            activeCard.classList.add('active');
+        }
+
+        // Mostrar seção de tarefas
+        this.categoryTitleEl.textContent = `${category.icon} ${category.name}`;
+        this.tasksSectionEl.style.display = 'block';
+
+        // Renderizar tarefas
+        this.renderTasks();
+
+        // Scroll para seção
+        this.tasksSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /**
+     * ========================================
+     * RENDERIZAÇÃO DAS TAREFAS
+     * ========================================
+     */
+    renderTasks() {
+        if (!this.currentCategory || !this.tasksListEl) return;
+
+        console.log('📋 Renderizando tarefas da categoria:', this.currentCategory.name);
+
+        this.tasksListEl.innerHTML = '';
+        const categoryTasks = this.tasks[this.currentCategory.id] || [];
+
+        console.log('Tarefas encontradas:', categoryTasks.length);
+
+        if (categoryTasks.length === 0) {
+            const emptyState = document.createElement('li');
+            emptyState.className = 'empty-state';
+            emptyState.innerHTML = `
+                <div class="empty-icon">✅</div>
+                <h3 class="empty-title">Nenhuma tarefa</h3>
+                <p class="empty-description">Adicione sua primeira tarefa!</p>
+            `;
+            this.tasksListEl.appendChild(emptyState);
+            return;
+        }
+
+        // Renderizar cada tarefa
+        categoryTasks.forEach((task, index) => {
+            const taskItem = this.createTaskItem(task);
+            this.tasksListEl.appendChild(taskItem);
+            console.log(`📋 Tarefa ${index + 1}: ${task.text || 'undefined'} (${task.completed ? 'concluída' : 'pendente'})`);
+        });
+
+        console.log('✅ Tarefas renderizadas');
+    }
+
+    /**
+     * ========================================
+     * CRIAÇÃO DE ITEM DE TAREFA
+     * ========================================
+     */
+    createTaskItem(task) {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.dataset.taskId = task.id;
+
+        // Garantir que task.text existe
+        const taskText = task.text || '';
+        console.log(`🔍 Criando tarefa: "${taskText}" (firebaseId: ${task.firebaseId})`);
+
+        // Indicador de recorrência
+        let recurringInfo = '';
+        if (task.isRecurring && task.recurringDay !== undefined) {
+            const dayName = DAYS_OF_WEEK[task.recurringDay];
+            recurringInfo = `
+                <div class="task-recurring">
+                    <span>🔄</span>
+                    <span>Renova: ${dayName}</span>
+                </div>
+            `;
+        }
+
+        li.innerHTML = `
+            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+            <div class="task-content">
+                <div class="task-text ${task.completed ? 'completed' : ''}">
+                    ${taskText}
+                </div>
+                ${recurringInfo}
+            </div>
+            <div class="task-actions">
+                <button class="task-action-btn edit-task-btn" title="Editar tarefa">✏️</button>
+                <button class="task-action-btn delete-task-btn" title="Excluir tarefa">🗑️</button>
+            </div>
+        `;
+
+        // Event listeners para os botões
+        const checkbox = li.querySelector('.task-checkbox');
+        const editBtn = li.querySelector('.edit-task-btn');
+        const deleteBtn = li.querySelector('.delete-task-btn');
+        const taskTextEl = li.querySelector('.task-text');
+
+        // Checkbox
+        checkbox.addEventListener('change', (e) => {
+            console.log('✅ Toggle tarefa:', taskText, e.target.checked ? 'concluída' : 'pendente');
+            this.toggleTaskCompleted(task.firebaseId, e.target.checked);
+        });
+
+        // Botão de edição
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('✏️ Editando tarefa:', taskText);
+            this.openTaskModal(taskText, task);
+        });
+
+        // Botão de exclusão - ✅ CORRIGIDO
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log('🗑️ Excluindo tarefa:', taskText, '(firebaseId:', task.firebaseId, ')');
+            this.confirmDeleteTask(task);
+        });
+
+        // Double-click para editar
+        taskTextEl.addEventListener('dblclick', () => {
+            console.log('🔄 Edição rápida:', taskText);
+            this.openTaskModal(taskText, task);
+        });
+
+        return li;
+    }
+
+    // ========================================
+    // MÉTODOS FIREBASE CRUD
+    // ========================================
+
+    async addTaskToFirebase(categoryId, text) {
+        try {
+            console.log('➕ Adicionando tarefa:', text, 'na categoria:', categoryId);
+
+            const newTask = {
+                id: `task_${Date.now()}`,
+                text: text,
+                completed: false,
+                categoryId: categoryId,
+                isRecurring: false,
+                createdAt: serverTimestamp()
+            };
+
+            const docRef = await addDoc(collection(db, COLLECTIONS.TASKS), newTask);
+            console.log('✅ Tarefa adicionada com ID:', docRef.id);
+
+        } catch (error) {
+            console.error('❌ Erro ao adicionar tarefa:', error);
+            this.showError('Erro ao adicionar tarefa.');
+        }
+    }
+
+    async toggleTaskCompleted(firebaseId, completed) {
+        try {
+            console.log('✅ Atualizando status da tarefa:', firebaseId, 'para:', completed ? 'concluída' : 'pendente');
+
+            await updateDoc(doc(db, COLLECTIONS.TASKS, firebaseId), {
+                completed: completed
+            });
+
+            console.log('✅ Status atualizado');
+
+        } catch (error) {
+            console.error('❌ Erro ao atualizar tarefa:', error);
+        }
+    }
+
+    // ========================================
+    // TAREFAS RECORRENTES
+    // ========================================
+
+    async checkAndRenewRecurringTasks() {
+        try {
+            console.log('🔄 Verificando tarefas recorrentes...');
+
+            const recurringQuery = query(
+                collection(db, COLLECTIONS.TASKS),
+                where('isRecurring', '==', true)
+            );
+
+            const snapshot = await getDocs(recurringQuery);
+            const today = new Date();
+            const todayDayOfWeek = today.getDay();
+
+            let renewedCount = 0;
+
+            for (const docSnap of snapshot.docs) {
+                const task = { firebaseId: docSnap.id, ...docSnap.data() };
+
+                if (this.shouldRenewTask(task, today, todayDayOfWeek)) {
+                    await this.renewTask(docSnap.id, task);
+                    renewedCount++;
+                }
+            }
+
+            if (renewedCount > 0) {
+                console.log(`🔄 ${renewedCount} tarefa(s) renovada(s)`);
+            } else {
+                console.log('🔄 Nenhuma tarefa precisou ser renovada');
+            }
+
+        } catch (error) {
+            console.error('❌ Erro ao verificar recorrências:', error);
+        }
+    }
+
+    shouldRenewTask(task, today, todayDayOfWeek) {
+        if (task.recurringDay === undefined || task.recurringDay !== todayDayOfWeek) {
+            return false;
+        }
+
+        if (!task.lastRenewed) {
+            return true;
+        }
+
+        const lastRenewed = task.lastRenewed.toDate ? task.lastRenewed.toDate() : new Date(task.lastRenewed);
+        const diffTime = today.getTime() - lastRenewed.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays >= 6;
+    }
+
+    async renewTask(firebaseId, task) {
+        try {
+            await updateDoc(doc(db, COLLECTIONS.TASKS, firebaseId), {
+                completed: false,
+                lastRenewed: serverTimestamp()
+            });
+            console.log('🔄 Tarefa renovada:', task.text);
+        } catch (error) {
+            console.error('❌ Erro ao renovar tarefa:', error);
+        }
+    }
+
+    // ========================================
+    // MODAIS
+    // ========================================
+
+    openCategoryModal(category = null) {
+        this.editingCategory = category;
+
+        const isEditing = category !== null;
+        this.categoryModalTitleEl.textContent = isEditing ? 'Editar Categoria' : 'Nova Categoria';
+        this.saveCategoryBtnEl.textContent = isEditing ? 'Salvar' : 'Criar';
+
+        if (isEditing) {
+            // ✅ CORREÇÃO: Preencher dados da categoria para edição
+            this.categoryNameInputEl.value = category.name;
+            this.selectedIcon = category.icon;
+            console.log('✏️ Editando categoria:', category.name, 'com ícone:', category.icon);
+        } else {
+            this.categoryNameInputEl.value = '';
+            this.selectedIcon = null;
+        }
+
+        this.renderIconGrid();
+        this.clearErrors();
+        this.categoryModalEl.style.display = 'flex';
+
+        setTimeout(() => this.categoryNameInputEl.focus(), 100);
+    }
+
+    openTaskModal(initialText = '', task = null) {
+        if (!this.currentCategory) {
+            this.showError('Selecione uma categoria primeiro.');
+            return;
+        }
+
+        this.editingTask = task;
+
+        const isEditing = task !== null;
+        this.taskModalTitleEl.textContent = isEditing ? 'Editar Tarefa' : 'Nova Tarefa';
+        this.saveTaskBtnEl.textContent = isEditing ? 'Salvar' : 'Adicionar';
+
+        this.taskTextInputEl.value = initialText;
+
+        if (isEditing) {
+            this.isRecurringCheckboxEl.checked = task.isRecurring || false;
+            this.dayOfWeekSelectEl.value = task.recurringDay !== undefined ? task.recurringDay.toString() : '';
+        } else {
+            this.isRecurringCheckboxEl.checked = false;
+            this.dayOfWeekSelectEl.value = '';
+        }
+
+        this.toggleDayOfWeekSelector(this.isRecurringCheckboxEl.checked);
+
+        // Reset múltiplas categorias
+        this.multipleCategoriesGroupEl.style.display = 'none';
+
+        this.clearErrors();
+        this.taskModalEl.style.display = 'flex';
+
+        setTimeout(() => this.taskTextInputEl.focus(), 100);
+    }
+
+    toggleDayOfWeekSelector(show) {
+        this.dayOfWeekGroupEl.style.display = show ? 'block' : 'none';
+        if (!show) {
+            this.dayOfWeekSelectEl.value = '';
+        }
+    }
+
+    toggleMultipleCategoriesSelector() {
+        const isVisible = this.multipleCategoriesGroupEl.style.display === 'block';
+
+        if (isVisible) {
+            this.multipleCategoriesGroupEl.style.display = 'none';
+        } else {
+            this.multipleCategoriesGroupEl.style.display = 'block';
+            this.renderCategoriesList();
+        }
+    }
+
+    renderCategoriesList() {
+        if (!this.categoriesListEl) return;
+
+        this.categoriesListEl.innerHTML = '';
+
+        this.categories.forEach(category => {
+            const isCurrentCategory = this.currentCategory && category.id === this.currentCategory.id;
+
+            const div = document.createElement('div');
+            div.className = `category-option ${isCurrentCategory ? 'disabled' : ''}`;
+
+            div.innerHTML = `
+                <input
+                    type="checkbox"
+                    id="cat_${category.id}"
+                    value="${category.id}"
+                    ${isCurrentCategory ? 'checked disabled' : ''}
+                >
+                <label for="cat_${category.id}">
+                    ${category.icon} ${category.name}
+                    ${isCurrentCategory ? ' (atual)' : ''}
+                </label>
+            `;
+
+            this.categoriesListEl.appendChild(div);
+        });
+    }
+
+    renderIconGrid() {
+        this.iconGridEl.innerHTML = '';
+
+        AVAILABLE_ICONS.forEach((icon) => {
+            const iconElement = document.createElement('div');
+            iconElement.className = 'icon-option';
+            iconElement.textContent = icon;
+
+            if (icon === this.selectedIcon) {
+                iconElement.classList.add('selected');
+            }
+
+            iconElement.addEventListener('click', () => {
+                document.querySelectorAll('.icon-option').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                iconElement.classList.add('selected');
+                this.selectedIcon = icon;
+            });
+
+            this.iconGridEl.appendChild(iconElement);
+        });
+    }
+
+    async saveCategory() {
+        try {
+            const name = this.categoryNameInputEl.value.trim();
+
+            if (!name) {
+                this.showFieldError('categoryNameError', 'Nome da categoria é obrigatório');
+                return;
+            }
+
+            if (!this.selectedIcon) {
+                this.showFieldError('iconError', 'Selecione um ícone');
+                return;
+            }
+
+            console.log('💾 Salvando categoria:', name);
+
+            if (this.editingCategory) {
+                // ✅ CORREÇÃO: Atualizando categoria existente
+                console.log('🔄 Atualizando categoria existente:', this.editingCategory.firebaseId);
+                await updateDoc(doc(db, COLLECTIONS.CATEGORIES, this.editingCategory.firebaseId), {
+                    name: name,
+                    icon: this.selectedIcon
+                });
+            } else {
+                const maxOrder = Math.max(...this.categories.map(c => c.order || 0), -1);
+
+                await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
+                    id: `cat_${Date.now()}`,
+                    name: name,
+                    icon: this.selectedIcon,
+                    order: maxOrder + 1,
+                    createdAt: serverTimestamp()
+                });
+            }
+
+            console.log('✅ Categoria salva');
+            this.closeCategoryModal();
+
+        } catch (error) {
+            console.error('❌ Erro ao salvar categoria:', error);
+            this.showError('Erro ao salvar categoria.');
+        }
+    }
+
+    async saveTask() {
+        try {
+            const text = this.taskTextInputEl.value.trim();
+            const isRecurring = this.isRecurringCheckboxEl.checked;
+            const recurringDay = this.dayOfWeekSelectEl.value;
+
+            if (!text) {
+                this.showFieldError('taskTextError', 'Descrição da tarefa é obrigatória');
+                return;
+            }
+
+            if (isRecurring && !recurringDay) {
+                this.showFieldError('dayOfWeekError', 'Selecione o dia da semana');
+                return;
+            }
+
+            console.log('💾 Salvando tarefa:', text);
+
+            // Coletar categorias selecionadas para múltiplas categorias
+            const selectedCategories = [];
+
+            // Sempre incluir categoria atual
+            selectedCategories.push(this.currentCategory.id);
+
+            // Se modo múltiplas categorias estiver ativo, coletar selecionadas
+            if (this.multipleCategoriesGroupEl.style.display === 'block') {
+                const checkboxes = this.categoriesListEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+                checkboxes.forEach(cb => {
+                    if (cb.value !== this.currentCategory.id) {
+                        selectedCategories.push(cb.value);
+                    }
+                });
+            }
+
+            console.log('📁 Categorias selecionadas:', selectedCategories);
+
+            const taskData = {
+                text: text,
+                isRecurring: isRecurring,
+                originalText: text
+            };
+
+            if (isRecurring) {
+                taskData.recurringDay = parseInt(recurringDay);
+                taskData.lastRenewed = serverTimestamp();
+            } else {
+                taskData.recurringDay = null;
+                taskData.lastRenewed = null;
+            }
+
+            if (this.editingTask) {
+                // Editando tarefa existente
+                await updateDoc(doc(db, COLLECTIONS.TASKS, this.editingTask.firebaseId), {
+                    ...taskData,
+                    categoryId: this.currentCategory.id
+                });
+            } else {
+                // Criando nova(s) tarefa(s)
+                const promises = selectedCategories.map(categoryId => {
+                    return addDoc(collection(db, COLLECTIONS.TASKS), {
+                        ...taskData,
+                        id: `task_${Date.now()}_${categoryId}`,
+                        categoryId: categoryId,
+                        completed: false,
+                        createdAt: serverTimestamp()
+                    });
+                });
+
+                await Promise.all(promises);
+                console.log(`✅ Tarefa criada em ${selectedCategories.length} categoria(s)`);
+            }
+
+            console.log('✅ Tarefa salva');
+            this.closeTaskModal();
+
+        } catch (error) {
+            console.error('❌ Erro ao salvar tarefa:', error);
+            this.showError('Erro ao salvar tarefa.');
+        }
+    }
+
+    // ========================================
+    // EXCLUSÕES
+    // ========================================
+
+    confirmDeleteCategory(category) {
+        const categoryTasks = this.tasks[category.id] || [];
+        const taskCount = categoryTasks.length;
+
+        this.deleteMessageEl.textContent = `Excluir categoria "${category.name}"?`;
+
+        if (taskCount > 0) {
+            this.deleteInfoEl.innerHTML = `
+                <strong>Atenção:</strong> Esta ação excluirá ${taskCount} tarefa(s).
+            `;
+        } else {
+            this.deleteInfoEl.innerHTML = '';
+        }
+
+        this.deleteCallback = () => this.deleteCategory(category);
+        this.deleteModalEl.style.display = 'flex';
+    }
+
+    confirmDeleteTask(task) {
+        this.deleteMessageEl.textContent = `Excluir tarefa "${task.text || 'sem nome'}"?`;
+        this.deleteInfoEl.innerHTML = task.isRecurring ?
+            '<strong>Esta é uma tarefa recorrente.</strong>' : '';
+
+        this.deleteCallback = () => this.deleteTask(task);
+        this.deleteModalEl.style.display = 'flex';
+    }
+
+    async deleteCategory(category) {
+        try {
+            console.log('🗑️ Excluindo categoria:', category.name);
+
+            const categoryTasks = this.tasks[category.id] || [];
+            for (const task of categoryTasks) {
+                await deleteDoc(doc(db, COLLECTIONS.TASKS, task.firebaseId));
+            }
+
+            await deleteDoc(doc(db, COLLECTIONS.CATEGORIES, category.firebaseId));
+
+            if (this.currentCategory && this.currentCategory.id === category.id) {
+                this.currentCategory = null;
+                this.tasksSectionEl.style.display = 'none';
+            }
+
+            console.log('✅ Categoria excluída');
+
+        } catch (error) {
+            console.error('❌ Erro ao excluir categoria:', error);
+            this.showError('Erro ao excluir categoria.');
+        }
+    }
+
+    async deleteTask(task) {
+        try {
+            console.log('🗑️ Excluindo tarefa:', task.text, '(firebaseId:', task.firebaseId, ')');
+
+            if (!task.firebaseId) {
+                console.error('❌ Task sem firebaseId:', task);
+                this.showError('Erro: tarefa sem ID válido.');
+                return;
+            }
+
+            await deleteDoc(doc(db, COLLECTIONS.TASKS, task.firebaseId));
+
+            console.log('✅ Tarefa excluída');
+
+        } catch (error) {
+            console.error('❌ Erro ao excluir tarefa:', error);
+            this.showError('Erro ao excluir tarefa.');
+        }
+    }
+
+    // ========================================
+    // UTILITÁRIOS
+    // ========================================
+
+    closeCategoryModal() {
+        this.categoryModalEl.style.display = 'none';
+        this.editingCategory = null;
+        this.selectedIcon = null;
+        this.clearErrors();
+    }
+
+    closeTaskModal() {
+        this.taskModalEl.style.display = 'none';
+        this.editingTask = null;
+        this.multipleCategoriesGroupEl.style.display = 'none';
+        this.clearErrors();
+    }
+
+    closeDeleteModal() {
+        this.deleteModalEl.style.display = 'none';
+        this.deleteCallback = null;
+    }
+
+    executeDelete() {
+        if (this.deleteCallback) {
+            this.deleteCallback();
+        }
+        this.closeDeleteModal();
+    }
+
+    showFieldError(fieldId, message) {
+        const errorElement = document.getElementById(fieldId);
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.classList.add('show');
+        }
+    }
+
+    clearErrors() {
+        const errorElements = document.querySelectorAll('.error-message');
+        errorElements.forEach(element => {
+            element.textContent = '';
+            element.classList.remove('show');
+        });
+    }
+
+    showError(message) {
+        console.error('❌ ' + message);
+        alert(message);
+    }
+}
 
 // =====================================
 // INICIALIZAÇÃO DA APLICAÇÃO
 // =====================================
 
-/**
- * Função principal de inicialização
- * Configura event listeners e carrega dados do Firestore
- */
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('🚀 Iniciando aplicação Todo List Firebase...');
-    
-    try {
-        // Inicializar referências DOM
-        initializeElements();
-        
-        // Configurar event listeners
-        setupEventListeners();
-        
-        // Mostrar loading
-        showLoading('Conectando ao Firebase...');
-        
-        // Verificar conexão Firebase
-        await testFirebaseConnection();
-        
-        // Inicializar listeners em tempo real
-        initializeFirestoreListeners();
-        
-        // Criar categorias padrão se não existirem
-        await createDefaultCategories();
-        
-        // Esconder loading
-        hideLoading();
-        
-        console.log('✅ Aplicação inicializada com sucesso!');
-        showFirebaseStatus('Conectado ao Firebase', 'success');
-        
-    } catch (error) {
-        console.error('❌ Erro ao inicializar aplicação:', error);
-        hideLoading();
-        showFirebaseStatus('Erro de conexão', 'error');
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 DOM carregado, iniciando TodoApp...');
+    new TodoApp();
 });
-
-/**
- * Inicializa todas as referências dos elementos DOM
- */
-function initializeElements() {
-    elements = {
-        // Containers principais
-        categoriesContainer: document.getElementById('categoriesContainer'),
-        tasksContainer: document.getElementById('tasksContainer'),
-        
-        // Estatísticas
-        totalTasks: document.getElementById('totalTasks'),
-        completedTasks: document.getElementById('completedTasks'),
-        pendingTasks: document.getElementById('pendingTasks'),
-        
-        // Título da categoria atual
-        categoryTitle: document.getElementById('categoryTitle'),
-        
-        // Estados vazios
-        emptyState: document.getElementById('emptyState'),
-        
-        // Botões principais
-        addCategoryBtn: document.getElementById('addCategoryBtn'),
-        addTaskBtn: document.getElementById('addTaskBtn'),
-        
-        // Filtros
-        filterBtns: document.querySelectorAll('.filter-btn'),
-        
-        // Modal de categoria
-        categoryModal: document.getElementById('categoryModal'),
-        categoryModalTitle: document.getElementById('categoryModalTitle'),
-        categoryForm: document.getElementById('categoryForm'),
-        categoryName: document.getElementById('categoryName'),
-        categoryIcon: document.getElementById('categoryIcon'),
-        saveCategoryBtn: document.getElementById('saveCategoryBtn'),
-        cancelCategoryBtn: document.getElementById('cancelCategoryBtn'),
-        closeCategoryModal: document.getElementById('closeCategoryModal'),
-        
-        // Modal de tarefa
-        taskModal: document.getElementById('taskModal'),
-        taskModalTitle: document.getElementById('taskModalTitle'),
-        taskForm: document.getElementById('taskForm'),
-        taskTitle: document.getElementById('taskTitle'),
-        taskDescription: document.getElementById('taskDescription'),
-        taskCategory: document.getElementById('taskCategory'),
-        taskPriority: document.getElementById('taskPriority'),
-        taskDueDate: document.getElementById('taskDueDate'),
-        saveTaskBtn: document.getElementById('saveTaskBtn'),
-        cancelTaskBtn: document.getElementById('cancelTaskBtn'),
-        closeTaskModal: document.getElementById('closeTaskModal'),
-        
-        // Modal de confirmação
-        confirmModal: document.getElementById('confirmModal'),
-        confirmMessage: document.getElementById('confirmMessage'),
-        confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
-        cancelConfirmBtn: document.getElementById('cancelConfirmBtn'),
-        closeConfirmModal: document.getElementById('closeConfirmModal'),
-        
-        // Loading overlay
-        loadingOverlay: document.getElementById('loadingOverlay')
-    };
-}
-
-/**
- * Configura todos os event listeners da aplicação
- */
-function setupEventListeners() {
-    // Botões principais
-    elements.addCategoryBtn.addEventListener('click', () => openCategoryModal());
-    elements.addTaskBtn.addEventListener('click', () => openTaskModal());
-    
-    // Filtros de tarefas
-    elements.filterBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const filter = e.target.closest('.filter-btn').dataset.filter;
-            setActiveFilter(filter);
-        });
-    });
-    
-    // Modal de categoria - CORRIGIDO: Botão salvar agora funciona
-    elements.saveCategoryBtn.addEventListener('click', handleCategorySubmit);
-    elements.cancelCategoryBtn.addEventListener('click', closeCategoryModal);
-    elements.closeCategoryModal.addEventListener('click', closeCategoryModal);
-    
-    // Modal de tarefa - CORRIGIDO: Botão salvar agora funciona
-    elements.saveTaskBtn.addEventListener('click', handleTaskSubmit);
-    elements.cancelTaskBtn.addEventListener('click', closeTaskModal);
-    elements.closeTaskModal.addEventListener('click', closeTaskModal);
-    
-    // Modal de confirmação
-    elements.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
-    elements.cancelConfirmBtn.addEventListener('click', closeConfirmModal);
-    elements.closeConfirmModal.addEventListener('click', closeConfirmModal);
-    
-    // Fechar modais clicando no overlay
-    [elements.categoryModal, elements.taskModal, elements.confirmModal].forEach(modal => {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target.classList.contains('modal-overlay')) {
-                closeAllModals();
-            }
-        });
-    });
-    
-    // Tecla ESC para fechar modais
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeAllModals();
-        }
-    });
-}
-
-// =====================================
-// FUNÇÕES FIREBASE FIRESTORE
-// =====================================
-
-/**
- * Testa a conexão com o Firebase
- */
-async function testFirebaseConnection() {
-    try {
-        await getDocs(collection(db, 'categories'));
-        console.log('🔥 Conexão Firebase establishment com sucesso!');
-        return true;
-    } catch (error) {
-        console.error('❌ Erro de conexão Firebase:', error);
-        throw error;
-    }
-}
-
-/**
- * Inicializa os listeners em tempo real do Firestore
- */
-function initializeFirestoreListeners() {
-    // Listener para categorias
-    const categoriesQuery = query(
-        collection(db, 'categories'), 
-        orderBy('createdAt', 'asc')
-    );
-    
-    categoriesListener = onSnapshot(categoriesQuery, (snapshot) => {
-        categories = [];
-        snapshot.forEach((doc) => {
-            categories.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        
-        console.log('📂 Categorias atualizadas:', categories.length);
-        console.log('📂 DEBUG - Categorias carregadas:', categories.map(c => ({ id: c.id, name: c.name })));
-        
-        categoriesLoaded = true;
-        renderCategoriesIfReady();
-        updateCategorySelect();
-    }, (error) => {
-        console.error('❌ Erro ao escutar categorias:', error);
-        showFirebaseStatus('Erro ao sincronizar categorias', 'error');
-    });
-    
-    // Listener para tarefas
-    const tasksQuery = query(
-        collection(db, 'tasks'), 
-        orderBy('createdAt', 'desc')
-    );
-    
-    tasksListener = onSnapshot(tasksQuery, (snapshot) => {
-        tasks = [];
-        snapshot.forEach((doc) => {
-            tasks.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        
-        console.log('📋 Tarefas atualizadas:', tasks.length);
-        console.log('📋 DEBUG - Tarefas carregadas:', tasks.map(t => ({ id: t.id, title: t.title, categoryId: t.categoryId })));
-        
-        tasksLoaded = true;
-        renderCategoriesIfReady();
-        renderTasks();
-        updateStatistics();
-    }, (error) => {
-        console.error('❌ Erro ao escutar tarefas:', error);
-        showFirebaseStatus('Erro ao sincronizar tarefas', 'error');
-    });
-}
-
-/**
- * CORREÇÃO DO BUG: Renderiza categorias somente quando ambos os dados estão prontos
- */
-function renderCategoriesIfReady() {
-    if (categoriesLoaded && tasksLoaded) {
-        console.log('🔧 DEBUG - Renderizando categorias com dados completos');
-        renderCategories();
-    } else {
-        console.log('⏳ Aguardando carregamento completo - categorias:', categoriesLoaded, 'tarefas:', tasksLoaded);
-    }
-}
-
-/**
- * Adiciona uma nova categoria ao Firestore
- */
-async function addCategoryToFirebase(categoryData) {
-    try {
-        showLoading('Salvando categoria...');
-        
-        const docRef = await addDoc(collection(db, 'categories'), {
-            ...categoryData,
-            createdAt: serverTimestamp()
-        });
-        
-        console.log('✅ Categoria adicionada:', docRef.id);
-        showFirebaseStatus('Categoria salva com sucesso!', 'success');
-        
-        return docRef.id;
-    } catch (error) {
-        console.error('❌ Erro ao adicionar categoria:', error);
-        showFirebaseStatus('Erro ao salvar categoria', 'error');
-        throw error;
-    } finally {
-        hideLoading();
-    }
-}
-
-/**
- * Atualiza uma categoria existente no Firestore
- */
-async function updateCategoryInFirebase(categoryId, categoryData) {
-    try {
-        showLoading('Atualizando categoria...');
-        
-        const categoryRef = doc(db, 'categories', categoryId);
-        await updateDoc(categoryRef, {
-            ...categoryData,
-            updatedAt: serverTimestamp()
-        });
-        
-        console.log('✅ Categoria atualizada:', categoryId);
-        showFirebaseStatus('Categoria atualizada com sucesso!', 'success');
-        
-    } catch (error) {
-        console.error('❌ Erro ao atualizar categoria:', error);
-        showFirebaseStatus('Erro ao atualizar categoria', 'error');
-        throw error;
-    } finally {
-        hideLoading();
-    }
-}
-
-/**
- * Remove uma categoria do Firestore
- */
-async function deleteCategoryFromFirebase(categoryId) {
-    try {
-        showLoading('Excluindo categoria...');
-        
-        // Primeiro, excluir todas as tarefas da categoria
-        const tasksQuery = query(
-            collection(db, 'tasks'),
-            where('categoryId', '==', categoryId)
-        );
-        
-        const tasksSnapshot = await getDocs(tasksQuery);
-        const deletePromises = [];
-        
-        tasksSnapshot.forEach((taskDoc) => {
-            deletePromises.push(deleteDoc(doc(db, 'tasks', taskDoc.id)));
-        });
-        
-        await Promise.all(deletePromises);
-        
-        // Depois excluir a categoria
-        await deleteDoc(doc(db, 'categories', categoryId));
-        
-        console.log('✅ Categoria e tarefas relacionadas excluídas:', categoryId);
-        showFirebaseStatus('Categoria excluída com sucesso!', 'success');
-        
-        // Reset da categoria selecionada se foi a excluída
-        if (selectedCategoryId === categoryId) {
-            selectedCategoryId = null;
-            elements.categoryTitle.textContent = 'Todas as Tarefas';
-        }
-        
-    } catch (error) {
-        console.error('❌ Erro ao excluir categoria:', error);
-        showFirebaseStatus('Erro ao excluir categoria', 'error');
-        throw error;
-    } finally {
-        hideLoading();
-    }
-}
-
-/**
- * Adiciona uma nova tarefa ao Firestore
- */
-async function addTaskToFirebase(taskData) {
-    try {
-        showLoading('Salvando tarefa...');
-        
-        const docRef = await addDoc(collection(db, 'tasks'), {
-            ...taskData,
-            completed: false,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-        
-        console.log('✅ Tarefa adicionada:', docRef.id);
-        showFirebaseStatus('Tarefa salva com sucesso!', 'success');
-        
-        return docRef.id;
-    } catch (error) {
-        console.error('❌ Erro ao adicionar tarefa:', error);
-        showFirebaseStatus('Erro ao salvar tarefa', 'error');
-        throw error;
-    } finally {
-        hideLoading();
-    }
-}
-
-/**
- * Atualiza uma tarefa existente no Firestore
- */
-async function updateTaskInFirebase(taskId, taskData) {
-    try {
-        const taskRef = doc(db, 'tasks', taskId);
-        await updateDoc(taskRef, {
-            ...taskData,
-            updatedAt: serverTimestamp()
-        });
-        
-        console.log('✅ Tarefa atualizada:', taskId);
-        
-    } catch (error) {
-        console.error('❌ Erro ao atualizar tarefa:', error);
-        showFirebaseStatus('Erro ao atualizar tarefa', 'error');
-        throw error;
-    }
-}
-
-/**
- * Remove uma tarefa do Firestore
- */
-async function deleteTaskFromFirebase(taskId) {
-    try {
-        await deleteDoc(doc(db, 'tasks', taskId));
-        console.log('✅ Tarefa excluída:', taskId);
-        showFirebaseStatus('Tarefa excluída com sucesso!', 'success');
-        
-    } catch (error) {
-        console.error('❌ Erro ao excluir tarefa:', error);
-        showFirebaseStatus('Erro ao excluir tarefa', 'error');
-        throw error;
-    }
-}
-
-/**
- * Cria categorias padrão se não existirem
- */
-async function createDefaultCategories() {
-    try {
-        // Verificar se já existem categorias
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        
-        if (categoriesSnapshot.empty) {
-            console.log('📂 Criando categorias padrão...');
-            
-            const defaultCategories = [
-                { name: 'Trabalho', icon: 'fas fa-briefcase', color: 'var(--color-primary)' },
-                { name: 'Casa', icon: 'fas fa-home', color: 'var(--color-success)' },
-                { name: 'Estudos', icon: 'fas fa-graduation-cap', color: 'var(--color-warning)' },
-                { name: 'Pessoal', icon: 'fas fa-heart', color: 'var(--color-error)' }
-            ];
-            
-            const promises = defaultCategories.map(category => 
-                addDoc(collection(db, 'categories'), {
-                    ...category,
-                    createdAt: serverTimestamp()
-                })
-            );
-            
-            await Promise.all(promises);
-            console.log('✅ Categorias padrão criadas!');
-        }
-    } catch (error) {
-        console.error('❌ Erro ao criar categorias padrão:', error);
-    }
-}
-
-// =====================================
-// FUNÇÕES DE RENDERIZAÇÃO
-// =====================================
-
-/**
- * CORREÇÃO DO BUG: Renderiza a lista de categorias com contador correto
- */
-function renderCategories() {
-    if (!elements.categoriesContainer) return;
-    
-    console.log('🔧 DEBUG - Iniciando renderCategories');
-    console.log('🔧 DEBUG - Total de categorias:', categories.length);
-    console.log('🔧 DEBUG - Total de tarefas:', tasks.length);
-    
-    elements.categoriesContainer.innerHTML = '';
-    
-    categories.forEach(category => {
-        console.log('🔧 DEBUG - Processando categoria:', category.id, category.name);
-        const categoryElement = createCategoryCard(category);
-        elements.categoriesContainer.appendChild(categoryElement);
-    });
-}
-
-/**
- * CORREÇÃO DO BUG: Cria card de categoria com contador correto
- */
-function createCategoryCard(category) {
-    // CORREÇÃO: Filtrar tarefas que pertencem a esta categoria
-    const categoryTasks = tasks.filter(task => {
-        const match = task.categoryId === category.id;
-        console.log(`🔧 DEBUG - Tarefa "${task.title}" (categoryId: ${task.categoryId}) -> Categoria "${category.name}" (id: ${category.id}) = ${match}`);
-        return match;
-    });
-    
-    const totalTasks = categoryTasks.length;
-    
-    console.log(`🔧 DEBUG - Categoria "${category.name}" tem ${totalTasks} tarefa(s)`);
-    
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = `category-card ${selectedCategoryId === category.id ? 'active' : ''}`;
-    categoryDiv.style.setProperty('--category-color', category.color);
-    
-    categoryDiv.innerHTML = `
-        <div class="category-header">
-            <div class="category-info">
-                <div class="category-name">
-                    <i class="${category.icon}"></i>
-                    ${category.name}
-                </div>
-                <div class="category-count">${totalTasks} tarefa${totalTasks !== 1 ? 's' : ''}</div>
-            </div>
-            <div class="category-actions">
-                <button class="category-action edit" onclick="editCategory('${category.id}')" title="Editar categoria">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="category-action delete" onclick="confirmDeleteCategory('${category.id}')" title="Excluir categoria">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        </div>
-    `;
-    
-    // Event listener para selecionar categoria
-    categoryDiv.addEventListener('click', (e) => {
-        if (!e.target.closest('.category-actions')) {
-            selectCategory(category.id, category.name);
-        }
-    });
-    
-    return categoryDiv;
-}
-
-/**
- * Renderiza a lista de tarefas
- */
-function renderTasks() {
-    if (!elements.tasksContainer) return;
-    
-    const filteredTasks = getFilteredTasks();
-    
-    // Limpar container
-    elements.tasksContainer.innerHTML = '';
-    
-    if (filteredTasks.length === 0) {
-        elements.tasksContainer.appendChild(elements.emptyState);
-        return;
-    }
-    
-    filteredTasks.forEach(task => {
-        const taskElement = createTaskElement(task);
-        elements.tasksContainer.appendChild(taskElement);
-    });
-}
-
-/**
- * Cria elemento HTML para uma tarefa
- */
-function createTaskElement(task) {
-    const category = categories.find(cat => cat.id === task.categoryId);
-    const categoryName = category ? category.name : 'Sem categoria';
-    
-    const taskDiv = document.createElement('div');
-    taskDiv.className = `task-item priority-${task.priority} ${task.completed ? 'completed' : ''}`;
-    
-    // Formatação da data de vencimento
-    let dueDateHtml = '';
-    if (task.dueDate) {
-        const dueDate = new Date(task.dueDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        dueDate.setHours(0, 0, 0, 0);
-        
-        const isOverdue = dueDate < today && !task.completed;
-        const isToday = dueDate.getTime() === today.getTime();
-        
-        let dateClass = '';
-        let dateText = dueDate.toLocaleDateString('pt-BR');
-        
-        if (isOverdue) {
-            dateClass = 'overdue';
-            dateText = `⚠️ ${dateText}`;
-        } else if (isToday) {
-            dateClass = 'today';
-            dateText = `📅 Hoje`;
-        }
-        
-        dueDateHtml = `<span class="task-due-date ${dateClass}"><i class="fas fa-calendar"></i> ${dateText}</span>`;
-    }
-    
-    taskDiv.innerHTML = `
-        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
-               onchange="toggleTaskComplete('${task.id}', this.checked)">
-        
-        <div class="task-content">
-            <div class="task-title">${task.title}</div>
-            ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
-            <div class="task-meta">
-                <span><i class="fas fa-folder"></i> ${categoryName}</span>
-                <span><i class="fas fa-flag"></i> ${getPriorityText(task.priority)}</span>
-                ${dueDateHtml}
-            </div>
-        </div>
-        
-        <div class="task-actions">
-            <button class="task-action edit" onclick="editTask('${task.id}')" title="Editar tarefa">
-                <i class="fas fa-edit"></i>
-            </button>
-            <button class="task-action delete" onclick="confirmDeleteTask('${task.id}')" title="Excluir tarefa">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `;
-    
-    return taskDiv;
-}
-
-/**
- * Retorna as tarefas filtradas baseado no filtro atual e categoria selecionada
- */
-function getFilteredTasks() {
-    let filteredTasks = tasks;
-    
-    // Filtrar por categoria se uma estiver selecionada
-    if (selectedCategoryId) {
-        filteredTasks = filteredTasks.filter(task => task.categoryId === selectedCategoryId);
-    }
-    
-    // Filtrar por status
-    switch (currentFilter) {
-        case 'completed':
-            filteredTasks = filteredTasks.filter(task => task.completed);
-            break;
-        case 'pending':
-            filteredTasks = filteredTasks.filter(task => !task.completed);
-            break;
-        // 'all' não precisa de filtro adicional
-    }
-    
-    return filteredTasks;
-}
-
-/**
- * Atualiza as estatísticas na interface
- */
-function updateStatistics() {
-    if (!elements.totalTasks) return;
-    
-    const total = tasks.length;
-    const completed = tasks.filter(task => task.completed).length;
-    const pending = total - completed;
-    
-    elements.totalTasks.textContent = total;
-    elements.completedTasks.textContent = completed;
-    elements.pendingTasks.textContent = pending;
-}
-
-/**
- * Atualiza o select de categorias nos modais
- */
-function updateCategorySelect() {
-    if (!elements.taskCategory) return;
-    
-    const currentValue = elements.taskCategory.value;
-    elements.taskCategory.innerHTML = '';
-    
-    categories.forEach(category => {
-        const option = document.createElement('option');
-        option.value = category.id;
-        option.textContent = category.name;
-        elements.taskCategory.appendChild(option);
-    });
-    
-    // Restaurar valor selecionado se ainda existe
-    if (currentValue && categories.find(cat => cat.id === currentValue)) {
-        elements.taskCategory.value = currentValue;
-    }
-}
-
-// =====================================
-// FUNÇÕES DE INTERAÇÃO
-// =====================================
-
-/**
- * Seleciona uma categoria
- */
-function selectCategory(categoryId, categoryName) {
-    selectedCategoryId = categoryId;
-    elements.categoryTitle.textContent = categoryName;
-    
-    // Atualizar visual das categorias
-    document.querySelectorAll('.category-card').forEach(card => {
-        card.classList.remove('active');
-    });
-    
-    event.currentTarget.classList.add('active');
-    
-    // Re-renderizar tarefas
-    renderTasks();
-}
-
-/**
- * Define o filtro ativo
- */
-function setActiveFilter(filter) {
-    currentFilter = filter;
-    
-    // Atualizar visual dos filtros
-    elements.filterBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.filter === filter);
-    });
-    
-    // Re-renderizar tarefas
-    renderTasks();
-}
-
-/**
- * Alterna o estado de conclusão de uma tarefa
- */
-window.toggleTaskComplete = async function(taskId, completed) {
-    try {
-        await updateTaskInFirebase(taskId, { completed });
-    } catch (error) {
-        console.error('Erro ao atualizar tarefa:', error);
-        // Reverter checkbox em caso de erro
-        const checkbox = document.querySelector(`input[onchange*="${taskId}"]`);
-        if (checkbox) {
-            checkbox.checked = !completed;
-        }
-    }
-};
-
-/**
- * Retorna o texto da prioridade
- */
-function getPriorityText(priority) {
-    const priorities = {
-        low: 'Baixa',
-        medium: 'Média',
-        high: 'Alta'
-    };
-    return priorities[priority] || 'Média';
-}
-
-// =====================================
-// FUNÇÕES DE MODAL - CATEGORIAS
-// =====================================
-
-/**
- * Abre o modal de categoria
- */
-function openCategoryModal(categoryId = null) {
-    isEditingCategory = !!categoryId;
-    editingCategoryId = categoryId;
-    
-    if (isEditingCategory) {
-        const category = categories.find(cat => cat.id === categoryId);
-        if (category) {
-            elements.categoryModalTitle.textContent = 'Editar Categoria';
-            elements.categoryName.value = category.name;
-            elements.categoryIcon.value = category.icon;
-            
-            // Selecionar cor
-            const colorRadio = document.querySelector(`input[name="categoryColor"][value="${category.color}"]`);
-            if (colorRadio) {
-                colorRadio.checked = true;
-            }
-        }
-    } else {
-        elements.categoryModalTitle.textContent = 'Nova Categoria';
-        elements.categoryForm.reset();
-        document.querySelector('input[name="categoryColor"]:first-child').checked = true;
-    }
-    
-    elements.categoryModal.classList.remove('hidden');
-    elements.categoryName.focus();
-}
-
-/**
- * Fecha o modal de categoria
- */
-function closeCategoryModal() {
-    elements.categoryModal.classList.add('hidden');
-    elements.categoryForm.reset();
-    isEditingCategory = false;
-    editingCategoryId = null;
-}
-
-/**
- * Manipula o envio do formulário de categoria - CORRIGIDO
- */
-async function handleCategorySubmit(e) {
-    if (e) e.preventDefault();
-    
-    // Coletar dados do formulário
-    const name = elements.categoryName.value.trim();
-    const icon = elements.categoryIcon.value;
-    const colorRadio = document.querySelector('input[name="categoryColor"]:checked');
-    const color = colorRadio ? colorRadio.value : 'var(--color-primary)';
-    
-    // Validação básica
-    if (!name) {
-        elements.categoryName.focus();
-        showFirebaseStatus('Por favor, insira um nome para a categoria', 'error');
-        return;
-    }
-    
-    const categoryData = { name, icon, color };
-    
-    try {
-        if (isEditingCategory) {
-            await updateCategoryInFirebase(editingCategoryId, categoryData);
-        } else {
-            await addCategoryToFirebase(categoryData);
-        }
-        
-        closeCategoryModal();
-    } catch (error) {
-        console.error('Erro ao salvar categoria:', error);
-    }
-}
-
-/**
- * Edita uma categoria
- */
-window.editCategory = function(categoryId) {
-    openCategoryModal(categoryId);
-};
-
-/**
- * Confirma exclusão de categoria
- */
-window.confirmDeleteCategory = function(categoryId) {
-    const category = categories.find(cat => cat.id === categoryId);
-    if (category) {
-        const taskCount = tasks.filter(task => task.categoryId === categoryId).length;
-        const message = taskCount > 0 
-            ? `Tem certeza que deseja excluir a categoria "${category.name}"? Isso também excluirá ${taskCount} tarefa${taskCount !== 1 ? 's' : ''} relacionada${taskCount !== 1 ? 's' : ''}.`
-            : `Tem certeza que deseja excluir a categoria "${category.name}"?`;
-        
-        showConfirmModal(message, () => deleteCategoryFromFirebase(categoryId));
-    }
-};
-
-// =====================================
-// FUNÇÕES DE MODAL - TAREFAS
-// =====================================
-
-/**
- * Abre o modal de tarefa
- */
-function openTaskModal(taskId = null) {
-    isEditingTask = !!taskId;
-    editingTaskId = taskId;
-    
-    if (isEditingTask) {
-        const task = tasks.find(t => t.id === taskId);
-        if (task) {
-            elements.taskModalTitle.textContent = 'Editar Tarefa';
-            elements.taskTitle.value = task.title;
-            elements.taskDescription.value = task.description || '';
-            elements.taskCategory.value = task.categoryId;
-            elements.taskPriority.value = task.priority;
-            elements.taskDueDate.value = task.dueDate || '';
-        }
-    } else {
-        elements.taskModalTitle.textContent = 'Nova Tarefa';
-        elements.taskForm.reset();
-        
-        // Selecionar categoria atual se uma estiver selecionada
-        if (selectedCategoryId) {
-            elements.taskCategory.value = selectedCategoryId;
-        }
-    }
-    
-    elements.taskModal.classList.remove('hidden');
-    elements.taskTitle.focus();
-}
-
-/**
- * Fecha o modal de tarefa
- */
-function closeTaskModal() {
-    elements.taskModal.classList.add('hidden');
-    elements.taskForm.reset();
-    isEditingTask = false;
-    editingTaskId = null;
-}
-
-/**
- * Manipula o envio do formulário de tarefa - CORRIGIDO
- */
-async function handleTaskSubmit(e) {
-    if (e) e.preventDefault();
-    
-    // Coletar dados do formulário
-    const title = elements.taskTitle.value.trim();
-    const description = elements.taskDescription.value.trim();
-    const categoryId = elements.taskCategory.value;
-    const priority = elements.taskPriority.value;
-    const dueDate = elements.taskDueDate.value || null;
-    
-    // Validação básica
-    if (!title) {
-        elements.taskTitle.focus();
-        showFirebaseStatus('Por favor, insira um título para a tarefa', 'error');
-        return;
-    }
-    
-    if (!categoryId) {
-        elements.taskCategory.focus();
-        showFirebaseStatus('Por favor, selecione uma categoria', 'error');
-        return;
-    }
-    
-    const taskData = { title, description, categoryId, priority, dueDate };
-    
-    try {
-        if (isEditingTask) {
-            await updateTaskInFirebase(editingTaskId, taskData);
-        } else {
-            await addTaskToFirebase(taskData);
-        }
-        
-        closeTaskModal();
-    } catch (error) {
-        console.error('Erro ao salvar tarefa:', error);
-    }
-}
-
-/**
- * Edita uma tarefa
- */
-window.editTask = function(taskId) {
-    openTaskModal(taskId);
-};
-
-/**
- * Confirma exclusão de tarefa
- */
-window.confirmDeleteTask = function(taskId) {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-        showConfirmModal(
-            `Tem certeza que deseja excluir a tarefa "${task.title}"?`,
-            () => deleteTaskFromFirebase(taskId)
-        );
-    }
-};
-
-// =====================================
-// FUNÇÕES DE MODAL - CONFIRMAÇÃO
-// =====================================
-
-let confirmCallback = null;
-
-/**
- * Mostra modal de confirmação
- */
-function showConfirmModal(message, callback) {
-    elements.confirmMessage.textContent = message;
-    confirmCallback = callback;
-    elements.confirmModal.classList.remove('hidden');
-}
-
-/**
- * Fecha modal de confirmação
- */
-function closeConfirmModal() {
-    elements.confirmModal.classList.add('hidden');
-    confirmCallback = null;
-}
-
-/**
- * Manipula confirmação de exclusão
- */
-async function handleConfirmDelete() {
-    if (confirmCallback) {
-        try {
-            await confirmCallback();
-        } catch (error) {
-            console.error('Erro ao executar exclusão:', error);
-        }
-    }
-    closeConfirmModal();
-}
-
-/**
- * Fecha todos os modais
- */
-function closeAllModals() {
-    closeCategoryModal();
-    closeTaskModal();
-    closeConfirmModal();
-}
-
-// =====================================
-// FUNÇÕES DE UI E FEEDBACK
-// =====================================
-
-/**
- * Mostra overlay de loading
- */
-function showLoading(message = 'Carregando...') {
-    if (elements.loadingOverlay) {
-        elements.loadingOverlay.querySelector('p').textContent = message;
-        elements.loadingOverlay.classList.remove('hidden');
-    }
-}
-
-/**
- * Esconde overlay de loading
- */
-function hideLoading() {
-    if (elements.loadingOverlay) {
-        elements.loadingOverlay.classList.add('hidden');
-    }
-}
-
-/**
- * Mostra status de conexão Firebase
- */
-function showFirebaseStatus(message, type = 'success') {
-    // Criar elemento de status se não existir
-    let statusElement = document.querySelector('.firebase-status');
-    if (!statusElement) {
-        statusElement = document.createElement('div');
-        statusElement.className = 'firebase-status';
-        document.body.appendChild(statusElement);
-    }
-    
-    statusElement.textContent = message;
-    statusElement.className = `firebase-status ${type} show`;
-    
-    // Esconder após 3 segundos
-    setTimeout(() => {
-        statusElement.classList.remove('show');
-    }, 3000);
-}
-
-// =====================================
-// CLEANUP E PERFORMANCE
-// =====================================
-
-/**
- * Cleanup ao fechar a página
- */
-window.addEventListener('beforeunload', () => {
-    if (categoriesListener) {
-        categoriesListener();
-    }
-    if (tasksListener) {
-        tasksListener();
-    }
-    console.log('🧹 Cleanup realizado');
-});
-
-/**
- * Log de performance
- */
-window.addEventListener('load', () => {
-    console.log('⚡ Página carregada em:', performance.now(), 'ms');
-});
-
-// =====================================
-// EXPORTAÇÕES E DEBUG
-// =====================================
-
-// Expor funções globais para debug (apenas em desenvolvimento)
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    window.TodoApp = {
-        categories,
-        tasks,
-        db,
-        elements,
-        addCategoryToFirebase,
-        addTaskToFirebase,
-        updateTaskInFirebase,
-        deleteTaskFromFirebase,
-        showFirebaseStatus
-    };
-    console.log('🔧 Modo debug ativado - TodoApp disponível no console');
-}
-
-console.log('📱 Todo List Firebase App carregado com sucesso!');
-
-/* 
- * =====================================
- * FIM DO ARQUIVO APP.JS
- * =====================================
- * 
- * Este arquivo contém toda a lógica da aplicação Todo List
- * integrada ao Firebase Firestore com sincronização em tempo real.
- * 
- * CORREÇÃO DO BUG DO CONTADOR:
- * - Adicionada função renderCategoriesIfReady() que espera ambos os dados (categorias e tarefas) estarem carregados
- * - Criada função createCategoryCard() específica para criar cards com contagem correta
- * - Adicionados logs detalhados de debug para monitorar associação categoria-tarefa
- * - Implementado controle de estado para garantir que renderização aconteça na ordem correta
- * 
- * Para usar a aplicação:
- * 1. Configure as regras do Firestore conforme comentado no início
- * 2. Abra index.html em um servidor web
- * 3. A aplicação se conectará automaticamente ao Firebase
- * 4. Dados são sincronizados em tempo real entre todas as sessões
- * 5. Contadores de tarefas agora funcionam corretamente
- */

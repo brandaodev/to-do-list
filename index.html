@@ -3,1377 +3,246 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Treinamento Amazon - Operação e Vendas</title>
+    <title>Todo List Firebase</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <div class="floating-elements" id="floatingElements"></div>
+    <!-- Container principal da aplicação -->
+    <div class="app-container">
+      <!-- Cabeçalho com título e estatísticas -->
+      <header class="app-header">
+        <div class="container">
+          <div class="header-content">
+            <h1 class="app-title">≡ Todo List Firebase</h1>
+            <!-- Estatísticas em tempo real -->
+            <div class="stats-container">
+              <div class="stat-item">
+                <span class="stat-number" id="totalTasks">0</span>
+                <span class="stat-label">TOTAL</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number" id="completedTasks">0</span>
+                <span class="stat-label">CONCLUÍDAS</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number" id="pendingTasks">0</span>
+                <span class="stat-label">PENDENTES</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-    <div class="container">
-      <!-- Capa -->
-      <div class="cover">
-        <div class="logo">
-          <svg
-            width="200"
-            height="60"
-            viewBox="0 0 400 120"
-            style="margin-bottom: 15px"
+      <!-- Conteúdo principal -->
+      <main class="main-content">
+        <div class="container">
+          <!-- Seção de categorias -->
+          <section class="categories-section">
+            <div class="section-header">
+              <h2 class="section-title">📁 Categorias</h2>
+              <button class="btn btn-primary" id="addCategoryBtn">
+                +Nova Categoria
+              </button>
+            </div>
+
+            <!-- Grid de cards de categorias -->
+            <div class="categories-grid" id="categoriesGrid">
+              <!-- Cards inseridos dinamicamente -->
+            </div>
+          </section>
+
+          <!-- Seção de tarefas (aparece quando categoria selecionada) -->
+          <section
+            class="tasks-section"
+            id="tasksSection"
+            style="display: none"
           >
-            <!-- Background logo -->
-            <rect width="400" height="120" fill="transparent" />
-
-            <!-- SELLER text -->
-            <text
-              x="50"
-              y="70"
-              font-family="Arial, sans-serif"
-              font-size="32"
-              font-weight="300"
-              fill="white"
-              letter-spacing="8"
-            >
-              SELLER
-            </text>
-
-            <!-- PRO text -->
-            <text
-              x="220"
-              y="70"
-              font-family="Arial, sans-serif"
-              font-size="32"
-              font-weight="bold"
-              fill="#ff6b35"
-              letter-spacing="6"
-            >
-              PRO
-            </text>
-
-            <!-- Registered trademark -->
-            <text
-              x="320"
-              y="50"
-              font-family="Arial, sans-serif"
-              font-size="16"
-              fill="white"
-            >
-              ®
-            </text>
-          </svg>
-        </div>
-        <h1>Treinamento Amazon</h1>
-        <p class="subtitle">Método Seller Pro - Guia Completo</p>
-      </div>
-
-      <!-- Navegação -->
-      <!-- REMOVIDO -->
-
-      <!-- Conteúdo -->
-      <div class="content">
-        <!-- Introdução -->
-        <div class="module" id="intro">
-          <div class="module-header">
-            <h2 class="module-title">Bem-vindo(a) à nossa equipe!</h2>
-            <p class="module-description">
-              Este treinamento foi desenvolvido para fornecer uma base sólida
-              sobre como operar e escalar vendas na Amazon, utilizando as
-              estratégias e ferramentas do método Seller Pro.
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>Sobre este Treinamento</h3>
-            <p>
-              Abordaremos desde a configuração inicial da conta até a otimização
-              avançada de publicidade, seguindo uma metodologia testada e
-              aprovada para o sucesso na Amazon.
-            </p>
-
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: 0%"></div>
+            <div class="section-header">
+              <h2 class="section-title" id="categoryTitle">
+                Categoria Selecionada
+              </h2>
+              <button class="btn btn-primary" id="addTaskBtn">
+                +Nova Tarefa
+              </button>
             </div>
-          </div>
 
-          <div class="info-box">
-            <h4>O que você vai aprender:</h4>
-            <ul>
-              <li>Fundamentos da Amazon e configuração da conta</li>
-              <li>Diferentes tipos de logística (FBM, DBA, FBA)</li>
-              <li>Gestão de produtos e precificação estratégica</li>
-              <li>Criação e otimização de anúncios</li>
-              <li>Ferramentas essenciais e MAPA Seller Pro</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Módulo 1 -->
-        <div class="module" id="modulo1">
-          <div class="module-header">
-            <h2 class="module-title">Módulo 1</h2>
-            <p class="module-description">
-              Fundamentos da Amazon e Configuração da Conta
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>O que é ADS e sua Importância na Amazon</h3>
-            <div class="highlight">
-              <p><strong>ADS (Advertising)</strong> refere-se à publicidade.</p>
+            <!-- Formulário rápido -->
+            <div class="quick-add-form">
+              <input
+                type="text"
+                id="quickTaskInput"
+                class="quick-input"
+                placeholder="Digite uma tarefa e pressione Enter..."
+                maxlength="100"
+              />
             </div>
-            <ul>
-              <li>
-                É vital para alavancar produtos, especialmente para itens novos,
-                genéricos ou de marca própria.
-              </li>
-              <li>
-                Ao investir em anúncios, você acelera a visibilidade, aumenta as
-                conversões e se posiciona à frente da concorrência.
-              </li>
-              <li>
-                Existem tipos de ADS como Automático, Display ADS, Brand ADS e
-                Manual (por palavras-chave, produtos ou categorias).
-              </li>
-            </ul>
 
-            <h4>Logística:</h4>
-            <ul>
-              <li>
-                <strong>FBM (Fulfillment by Merchant):</strong> Logística feita
-                pelo próprio vendedor.
-              </li>
-              <li>
-                <strong>DBA (Delivery by Amazon):</strong> Entrega pela Amazon,
-                com coleta no vendedor.
-              </li>
-              <li>
-                <strong>FBA (Fulfillment by Amazon):</strong> A Amazon armazena
-                e entrega os produtos.
-              </li>
-            </ul>
-
-            <h4>ADS Métricas:</h4>
-            <ul>
-              <li>
-                <strong>ACOS:</strong> Custo de publicidade sobre o faturamento
-                das vendas através da publicidade.
-              </li>
-              <li>
-                <strong>TACOS:</strong> Custo de publicidade sobre o faturamento
-                GLOBAL das vendas.
-              </li>
-              <li><strong>CPC:</strong> Custo por clique.</li>
-              <li>
-                <strong>Impressões:</strong> Quantidade de vezes que o anúncio é
-                exibido.
-              </li>
-              <li><strong>Portfólio:</strong> Grupo de organização do ADS.</li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Formalização da Operação: CPF vs. CNPJ</h3>
-
-            <h4>CPF:</h4>
-            <ul>
-              <li>
-                <strong>Pontos Positivos:</strong> Baixa burocracia, não "paga
-                impostos" diretamente.
-              </li>
-              <li>
-                <strong>Pontos Negativos:</strong> Não pode trocar para CNPJ,
-                não pode usar FBA, não pode comprar nos melhores fornecedores.
-                Recomendado apenas em último caso devido às limitações.
-              </li>
-            </ul>
-
-            <h4>CNPJ:</h4>
-            <div class="info-box">
-              <h5>MEI (Microempreendedor Individual):</h5>
-              <ul>
-                <li>
-                  <strong>Pontos Positivos:</strong> Pode abrir sozinho, não
-                  paga impostos (apenas DAS mensal), não exige contador.
-                </li>
-                <li>
-                  <strong>Pontos Negativos:</strong> Limite de faturamento
-                  anual/mensal, não pode usar FBA.
-                </li>
+            <!-- Lista de tarefas -->
+            <div class="tasks-container">
+              <ul class="tasks-list" id="tasksList">
+                <!-- Tarefas inseridas dinamicamente -->
               </ul>
             </div>
-
-            <div class="info-box">
-              <h5>ME (Microempresa) e Acima:</h5>
-              <ul>
-                <li>
-                  <strong>Pontos Positivos:</strong> Limite de faturamento anual
-                  maior, pode participar do FBA (em estados elegíveis).
-                </li>
-                <li>
-                  <strong>Pontos Negativos:</strong> Paga impostos com alíquota,
-                  exige contador/contabilidade.
-                </li>
-              </ul>
-            </div>
-
-            <p>
-              <strong
-                >Para escalar e usar as logísticas da Amazon, ter um CNPJ (ME ou
-                acima) é crucial.</strong
-              >
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>O que NÃO Fazer na Amazon</h3>
-            <div class="warning-box">
-              <ul>
-                <li>
-                  Não criar anúncios errados (match obrigatório para produtos de
-                  marca).
-                </li>
-                <li>
-                  Não entrar em Buy Box sem nota fiscal de entrada de produto de
-                  marca.
-                </li>
-                <li>Proibido duplicar contas.</li>
-                <li>
-                  Evitar fornecedores duvidosos; produtos de marca exigem
-                  representantes oficiais com nota fiscal.
-                </li>
-                <li>
-                  Proibido usar imagens de outros vendedores sem permissão.
-                </li>
-                <li>
-                  Atrasar/cancelar envios prejudica a conta (pode levar a
-                  bloqueio).
-                </li>
-                <li>Proibido pedir avaliações em troca de benefícios.</li>
-                <li>Evitar simulação de vendas.</li>
-                <li>Vendas de produtos falsificados geram bloqueios.</li>
-                <li>
-                  Evitar produtos de zona cinzenta (ex: relacionados a produtos
-                  proibidos).
-                </li>
-                <li>Dropshipping pode gerar bloqueio irreversível da conta.</li>
-                <li>
-                  A violação de regras pode resultar em suspensão ou banimento.
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Configurações Iniciais da Conta</h3>
-            <ul>
-              <li>
-                Conta bancária do dono da empresa deve ser compatível com o tipo
-                de conta (CPF/CNPJ) e ativa.
-              </li>
-              <li>
-                Cartão de crédito válido (com crédito) é obrigatório por
-                segurança.
-              </li>
-              <li>
-                Indicado criar conta no Plano Profissional (R$19,90/mês) para
-                acessar todas as ferramentas.
-              </li>
-              <li>Configurar endereço de devolução.</li>
-              <li>
-                Ativar modo férias para contas em outros países (ex: EUA) para
-                evitar problemas de envio ou bloqueios.
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Painel do Vendedor (Seller Central)</h3>
-            <ul>
-              <li>
-                <strong>Tela Inicial:</strong> Vendas, pedidos, mensagens,
-                status da conta.
-              </li>
-              <li>
-                <strong>Catálogo:</strong> Cadastro e melhorias de produtos
-                (upload de vídeos exige 4 meses de conta ou marca própria).
-              </li>
-              <li><strong>Inventário:</strong> Gestão de produtos.</li>
-              <li>
-                <strong>Publicidade:</strong> Gerenciar campanhas de anúncios.
-              </li>
-              <li>
-                <strong>Desempenho:</strong> Estado da conta, avaliações,
-                estornos.
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Gerenciando sua Reputação</h3>
-            <ul>
-              <li>Monitorar em Desempenho > Estado da conta.</li>
-              <li>
-                <strong>Desempenho de atendimento ao cliente:</strong> Manter
-                índice de tolerância baixo (menos de 1% para
-                reclamações/avaliações negativas).
-              </li>
-              <li>
-                <strong>Conformidade com políticas:</strong> Resolver por
-                recurso, se necessário.
-              </li>
-              <li>
-                <strong>Desempenho no envio:</strong> Importante para logística
-                do vendedor (FBM), monitorar envios tardios, taxas de
-                cancelamento e rastreamento válido.
-              </li>
-            </ul>
-
-            <div class="info-box">
-              <h4>Pontuações de reputação:</h4>
-              <ul>
-                <li>Abaixo de 200 é ruim (risco de bloqueio)</li>
-                <li>200-400 é bom</li>
-                <li>Acima de 400 é muito bom</li>
-              </ul>
-            </div>
-          </div>
+          </section>
         </div>
-
-        <!-- Módulo 2 -->
-        <div class="module" id="modulo2">
-          <div class="module-header">
-            <h2 class="module-title">Módulo 2</h2>
-            <p class="module-description">
-              Logísticas na Amazon (FBM, DBA, FBA) e Operação Digital
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>Tipos de Logísticas Disponíveis</h3>
-            <p>
-              A escolha da logística correta depende do modelo de operação
-              (físico, online ou híbrido).
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>FBM (Logística do Vendedor)</h3>
-            <div class="highlight">
-              <p>
-                <strong>Descrição:</strong> O próprio vendedor é responsável
-                pelo estoque, embalagem e envio dos produtos.
-              </p>
-            </div>
-            <ul>
-              <li>
-                <strong>Pontos Positivos:</strong> Menores custos (apenas
-                comissões da Amazon), maior controle.
-              </li>
-              <li>
-                <strong>Pontos Negativos:</strong> Nenhuma automação de envio
-                pela Amazon, maior responsabilidade por atrasos/problemas no
-                envio (pode gerar penalidade).
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>DBA (Delivery by Amazon)</h3>
-            <div class="highlight">
-              <p>
-                <strong>Descrição:</strong> A Amazon coleta o produto no
-                vendedor e realiza a entrega.
-              </p>
-            </div>
-            <p>
-              <strong>Quem pode participar:</strong> Pessoa física e jurídica
-              residente no Brasil.
-            </p>
-
-            <h4>Pontos Positivos:</h4>
-            <ul>
-              <li>Automação de etiquetas</li>
-              <li>Entrega realizada pela Amazon</li>
-              <li>Frete mais barato para o cliente</li>
-              <li>Maior agilidade de entrega</li>
-              <li>Devolução sem custo</li>
-            </ul>
-
-            <h4>Pontos Negativos:</h4>
-            <ul>
-              <li>Custos mais altos</li>
-              <li>Liberado apenas em algumas regiões</li>
-              <li>Pode apresentar "bugs e desafios"</li>
-            </ul>
-
-            <div class="info-box">
-              <h4>Cuidados:</h4>
-              <ul>
-                <li>Se CNPJ, configurar emissão de nota fiscal/ERP</li>
-                <li>Configurar tabela de frete</li>
-                <li>Abrir chamado em caso de falha da Amazon</li>
-              </ul>
-            </div>
-
-            <h4>Custos e Precificação:</h4>
-            <p>
-              Comissão variável da Amazon + tarifa logística. Recomenda-se usar
-              calculadora de receita da Amazon (ajustando custos manuais) ou
-              Zinx Analytics para precisão.
-            </p>
-
-            <h4>Devoluções:</h4>
-            <ul>
-              <li>Pré-aprovadas pela Amazon</li>
-              <li>Manter índice de até 3% de devoluções</li>
-              <li>Cliente tem 7 dias para devolução</li>
-            </ul>
-
-            <div class="highlight">
-              <h4>Estratégia para escalar com DBA:</h4>
-              <p>
-                Focar em maior lateralidade de produtos, preços abaixo da média,
-                e produtos de até R$78,99 podem ter melhor desempenho. ADS com
-                ACOS um pouco mais alto pode ser compensado pelo volume.
-              </p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>FBA (Fulfillment by Amazon)</h3>
-            <div class="highlight">
-              <p>
-                <strong>Descrição:</strong> A Amazon armazena os produtos e
-                cuida de toda a operação logística (envio, pós-venda).
-              </p>
-            </div>
-
-            <h4>Quem pode participar:</h4>
-            <p>Apenas para CNPJ (ME ou acima).</p>
-            <ul>
-              <li>Regime normal em SP (ou filial em outros estados)</li>
-              <li>
-                Simples Nacional (ME ou acima) no RJ, RS, PR (ou filial em
-                outros estados)
-              </li>
-            </ul>
-
-            <p>
-              <strong>Requisitos:</strong> Certificado digital e preparação
-              específica do item.
-            </p>
-
-            <h4>Pontos Positivos:</h4>
-            <ul>
-              <li>A Amazon faz quase tudo</li>
-              <li>Frete grátis para clientes Prime</li>
-              <li>Destaque em datas sazonais</li>
-              <li>Alto destaque na Amazon</li>
-            </ul>
-
-            <h4>Pontos Negativos:</h4>
-            <ul>
-              <li>Tarifas FBA mais altas</li>
-            </ul>
-
-            <p>
-              <strong>Custos e Precificação:</strong> Usar Revcal (calculadora
-              de receita da Amazon) ou Zinx Analytics.
-            </p>
-            <p>
-              <strong>Configuração:</strong> Manter o certificado digital
-              atualizado.
-            </p>
-            <p>
-              <strong>Painel FBA:</strong> Menu > Inventário do FBA > Logística
-              da Amazon. Permite acompanhar estoque e desempenho logístico.
-            </p>
-
-            <div class="info-box">
-              <h4>Configurando produtos para FBA:</h4>
-              <p>
-                O produto precisa ser listado como FBA, pode-se criar do zero,
-                adicionar ou alterar a condição. Necessário NCM, código de
-                origem, medidas e peso do pacote.
-              </p>
-            </div>
-
-            <div class="steps-container">
-              <div class="step">
-                <div class="step-number">1</div>
-                <h4>Primeiro Envio FBA:</h4>
-                <p>Menu > Inventário > Gerenciar envios para Amazon.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">2</div>
-                <h4>Verificar limite</h4>
-                <p>Verificar limite de reabastecimento.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">3</div>
-                <h4>Preparar embalagens</h4>
-                <p>Preparar embalagens com etiqueta gerada pela Amazon.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">4</div>
-                <h4>Cobrir código</h4>
-                <p>Cobrir código de barras original com etiqueta da Amazon.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">5</div>
-                <h4>Colar etiquetas</h4>
-                <p>Colar etiquetas de envio e nota fiscal na caixa.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">6</div>
-                <h4>Coleta</h4>
-                <p>
-                  A Amazon coleta em 3 dias úteis. Abrir chamado se não coletar.
-                </p>
-              </div>
-            </div>
-
-            <p>
-              <strong>Vendi, e agora (FBA)?</strong> Tudo fica sob
-              responsabilidade da Amazon.
-            </p>
-
-            <p>
-              <strong>Produto perdido pela Amazon:</strong> Verificar
-              gerenciamento de envios. Se a Amazon baixou menos itens do que
-              enviados, abrir chamado de reembolso em 30 dias.
-            </p>
-
-            <p>
-              <strong>Gerenciando Devoluções (FBA):</strong> Seller Central >
-              Menu > Relatórios > Logística > Concessões do cliente > Devoluções
-              de clientes com FBA. Verificar se o produto está dando prejuízo em
-              Economia do SKU.
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>FBA On Site</h3>
-            <p>
-              Similar ao FBA, mas o armazenamento é no local do vendedor, com
-              coleta da Amazon.
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>Operação Digital (FBA sem fronteiras)</h3>
-            <div class="highlight">
-              <p>
-                <strong>O que é:</strong> Abrir CNPJ em SP (ME ou acima),
-                comprar mercadoria e utilizar um Prep Center. Permite vender na
-                Amazon sem lidar fisicamente com produtos.
-              </p>
-            </div>
-
-            <h4>Custos:</h4>
-            <ul>
-              <li>Abertura de CNPJ (R$1.000-R$1.500)</li>
-              <li>Endereço fiscal (R$50-R$100/mês)</li>
-              <li>Prep Center</li>
-              <li>Compra de produtos</li>
-            </ul>
-
-            <h4>Para quem é:</h4>
-            <ul>
-              <li>Pessoas que buscam liberdade de tempo</li>
-              <li>Pouco tempo para investir fisicamente</li>
-              <li>Preferência por home office</li>
-            </ul>
-
-            <p>
-              <strong>Ciclo na prática:</strong> Fornecedor → Prep Center →
-              Amazon. Alguns fornecedores podem enviar direto para a Amazon (não
-              em todos os casos).
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>O Combo de Logística Perfeito</h3>
-            <div class="highlight">
-              <p>
-                Utilizar FBA e DBA/envio próprio para otimizar custos, melhorar
-                prazos e aumentar vendas, proporcionando flexibilidade e
-                competitividade.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Módulo 3 -->
-        <div class="module" id="modulo3">
-          <div class="module-header">
-            <h2 class="module-title">Módulo 3</h2>
-            <p class="module-description">
-              Gestão de Produtos e Precificação Estratégica
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>O Produto Certo para Vender na Amazon</h3>
-
-            <h4>Revenda (Multi Marcas):</h4>
-            <ul>
-              <li>
-                <strong>Características:</strong> Margem menor, alta demanda,
-                exige muita pesquisa, kits podem ser incógnitas.
-              </li>
-            </ul>
-
-            <h4>Genérico (Sem Marca):</h4>
-            <ul>
-              <li>
-                <strong>Características:</strong> Maiores margens, precisa criar
-                demanda, menos concorrência, longo prazo arriscado. Listar
-                genéricos amplia competitividade e oferece alternativas
-                acessíveis.
-              </li>
-            </ul>
-
-            <h4>Marca Própria (Private Label x White Label):</h4>
-            <ul>
-              <li>
-                <strong>Características:</strong> Recomendado para fabricantes
-                ou sellers avançados (médio/longo prazo). Traz valuation
-                (valorização da empresa), segurança e exige mais investimentos.
-              </li>
-            </ul>
-
-            <div class="info-box">
-              <p>
-                <strong>Private Label</strong> é a criação de um novo produto
-                fabricado para o vendedor.
-              </p>
-              <p>
-                <strong>White Label</strong> é quando um produto já existente no
-                mercado é estampado com a sua marca.
-              </p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Comprando os Primeiros Produtos</h3>
-            <ul>
-              <li>
-                <strong>Lateralidade:</strong> Diversificar produtos com poucos
-                estoques (ideal para testar o mercado e diminuir riscos).
-              </li>
-              <li>
-                <strong>Profundidade:</strong> Estoque maior de poucos produtos.
-              </li>
-            </ul>
-
-            <h4>Estratégia Inicial de Investimento:</h4>
-
-            <div class="steps-container">
-              <div class="step">
-                <div class="step-number">1</div>
-                <h4>Até R$500,00:</h4>
-                <p>10 SKUs, 10 unidades cada, R$5,00 de ticket de compra.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">2</div>
-                <h4>Até R$1.000,00:</h4>
-                <p>
-                  10 SKUs, 10 unidades de cada, R$5,00 de ticket de compra
-                  (metade do valor investido).
-                </p>
-              </div>
-              <div class="step">
-                <div class="step-number">3</div>
-                <h4>Entre R$1.000,00 e R$5.000,00:</h4>
-                <p>
-                  10 SKUs, 10 unidades de cada, ticket de compra acima de
-                  R$5,00. Nunca gaste mais de 50% do capital.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Precificação Correta e Métricas de Lucratividade</h3>
-
-            <div class="highlight">
-              <h4>Margem Ideal:</h4>
-              <p>20% de margem de contribuição (lucro bruto).</p>
-              <p>
-                <strong
-                  >Lucro Bruto = Preço de venda - comissões do marketplace -
-                  tarifas - custo do produto - imposto sobre a renda - custos de
-                  embalagens.</strong
-                >
-              </p>
-            </div>
-
-            <ul>
-              <li>
-                <strong>MPA Ideal (Margem Pós ADS):</strong> 15%. É o Lucro Pós
-                ADS.
-              </li>
-              <li>
-                <strong>Lucro Líquido:</strong> Lucro Bruto - ADS - Custos da
-                sua empresa. Ideal é ter entre 8% a 15% de lucro líquido.
-              </li>
-              <li>
-                <strong>ACOS Ideal:</strong> Metade da sua margem (ex: se margem
-                20%, ACOS ideal 10%).
-              </li>
-              <li>
-                <strong>ACOS Máximo:</strong> O total da sua margem (ex: se
-                margem 20%, ACOS máximo 20%).
-              </li>
-              <li>
-                <strong>TACOS Ideal:</strong> Buscar 5% como ideal e 15% como
-                máximo.
-              </li>
-            </ul>
-
-            <div class="info-box">
-              <h4>Alinhamento de Expectativas:</h4>
-              <p>As métricas devem ser analisadas em um período de 90 dias.</p>
-            </div>
-
-            <h4>Ferramentas para Precificação:</h4>
-            <ul>
-              <li>
-                <strong>Revenue Calculator da Amazon (Revcal):</strong> Pode ser
-                usado para logística de envio próprio e FBA, com ajustes manuais
-                para DBA.
-              </li>
-              <li>
-                <strong>Zinx Analytics:</strong> Extensão de navegador para
-                cálculo de precificação detalhada para todas as modalidades
-                logísticas (FBA, DBA, FBA On Site, Logística do Vendedor).
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Módulo 4 -->
-        <div class="module" id="modulo4">
-          <div class="module-header">
-            <h2 class="module-title">Módulo 4</h2>
-            <p class="module-description">
-              Criação e Otimização de Anúncios (Listing e ADS)
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>Listing Padrão Seller Pro: Anúncio de Alta Qualidade</h3>
-            <div class="highlight">
-              <p>Anúncios bem feitos aumentam as chances de venda.</p>
-            </div>
-
-            <h4>Título:</h4>
-            <ul>
-              <li>Entre 80 e 120 caracteres</li>
-              <li>Para produtos de marca, deve conter a marca no final</li>
-              <li>Não utilizar vírgulas, traços ou barras</li>
-            </ul>
-
-            <h4>Bullet Points (Tópicos):</h4>
-            <ul>
-              <li>Mínimo de 5 bullet points</li>
-              <li>Podem usar emojis e letras em negrito para destaque</li>
-              <li>Devem ser racionais e gerar desejo</li>
-            </ul>
-
-            <h4>Palavras-Chave Internas (de pesquisa):</h4>
-            <p>7 a 10 palavras-chave separadas por ";".</p>
-
-            <h4>Imagens:</h4>
-            <p>5 imagens de 1000px x 1000px.</p>
-
-            <div class="steps-container">
-              <div class="step">
-                <div class="step-number">1</div>
-                <h4>Primeira Imagem:</h4>
-                <p>Fundo branco, produto centralizado, somente o produto.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">2</div>
-                <h4>Segunda Imagem:</h4>
-                <p>Gerar desejo (produto sendo usado).</p>
-              </div>
-              <div class="step">
-                <div class="step-number">3</div>
-                <h4>Terceira e Quarta Imagem:</h4>
-                <p>Quebrar objeções e afirmar a qualidade do produto.</p>
-              </div>
-              <div class="step">
-                <div class="step-number">4</div>
-                <h4>Quinta Imagem:</h4>
-                <p>
-                  Mais informações do produto (ficha técnica, tamanho e
-                  dimensões).
-                </p>
-              </div>
-              <div class="step">
-                <div class="step-number">5</div>
-                <h4>Opcional:</h4>
-                <p>Modo de uso (se necessário).</p>
-              </div>
-            </div>
-
-            <div class="info-box">
-              <h4>Onde conseguir imagens de qualidade:</h4>
-              <p>
-                Procurar no Google, tirar fotos próprias (requer edição),
-                pesquisar pela extensão do Aliexpress.
-              </p>
-            </div>
-
-            <h4>Descrição:</h4>
-            <ul>
-              <li>Mínimo de 50 caracteres</li>
-              <li>Utilizar o máximo de informações do produto</li>
-              <li>Pode-se alterar aspectos com HTML</li>
-            </ul>
-
-            <h4>Conteúdo A+ e Vídeos:</h4>
-            <p>
-              Recomendado para contas com mais de 4 meses ou vendas de marca
-              própria.
-            </p>
-
-            <div class="info-box">
-              <h4>Informações Importantes para Listing (geral):</h4>
-              <p>
-                Nota fiscal, NCM, Código de Origem, CST ou CSOSN, Tamanho do
-                produto, Peso, Informações sobre bateria (se houver).
-              </p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Listando Produtos Específicos</h3>
-
-            <h4>Produto Genérico:</h4>
-            <ul>
-              <li>Todo produto sem marca própria/logotipo</li>
-              <li>Isenção de código EAN/ID de produto</li>
-              <li>Recomendável gerar conteúdo com IA da Amazon ou ChatGPT</li>
-            </ul>
-
-            <h4>Produto Genérico com Variação:</h4>
-            <p>
-              Se o fornecedor enviar variações de um produto sem variação
-              cadastrado, o ideal é criar um novo anúncio com as variações.
-              Essencial para melhorar a experiência do cliente e gestão de
-              estoque.
-            </p>
-
-            <h4>Produto de Marca Própria:</h4>
-            <ul>
-              <li>
-                Exige nota fiscal de entrada, autorização e código de barras
-              </li>
-              <li>
-                Produtos de marca precisam dar "match" com anúncios existentes
-                (confirmar código de barras, identificar produto, selecionar
-                condição, solicitar aprovação com documentação)
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Entendendo a Dashboard de ADS</h3>
-            <ul>
-              <li>
-                Fundamental para analisar o desempenho das campanhas e tomar
-                decisões baseadas em dados
-              </li>
-              <li>Permite acompanhar métricas como cliques, vendas e ACOS</li>
-              <li>
-                <strong>Acesso:</strong> Menu > Publicidade > Gerenciador de
-                campanhas
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Método de ADS Seller Pro</h3>
-            <div class="highlight">
-              <p>
-                Combina campanhas automáticas e manuais para otimizar
-                visibilidade e controle de custos.
-              </p>
-            </div>
-
-            <h4>ADS Low Cost:</h4>
-            <p>
-              1 campanha automática geral e campanhas manuais criadas por
-              insights.
-            </p>
-
-            <h4>
-              Estratégia Geral (Método Seller Pro - 5 campanhas por produto):
-            </h4>
-
-            <div class="steps-container">
-              <div class="step">
-                <div class="step-number">1</div>
-                <h4>Campanha Automática Geral:</h4>
-                <p>
-                  1 campanha geral automática FBA com todos os produtos; 1
-                  campanha geral automática DBA.
-                </p>
-                <ul>
-                  <li>
-                    <strong>Lances Padrão:</strong> R$0,60 para ticket
-                    R$0,00-R$150,00; R$1,00 para ticket acima de R$150,00.
-                  </li>
-                  <li>
-                    <strong>Passo a passo:</strong> Seller Central > Menu >
-                    Publicidade > Gerenciador de campanhas > Portfólio > Criar
-                    campanha dentro do portfólio > Sponsored Products >
-                    Selecionar produtos > Segmentação automática > Lances
-                    dinâmicos > Definir orçamento > Veicular.
-                  </li>
-                </ul>
-              </div>
-              <div class="step">
-                <div class="step-number">2</div>
-                <h4>Campanha Automática Individual:</h4>
-                <p>1 campanha automática individual por produto.</p>
-                <ul>
-                  <li>
-                    <strong>Regras:</strong> Lance padrão R$0,66; Estratégia de
-                    lances: Aumento e redução; Orçamento diário geral: R$10,00.
-                  </li>
-                  <li>
-                    Incluir segmentação negativa por palavra-chave e por
-                    produto.
-                  </li>
-                </ul>
-              </div>
-              <div class="step">
-                <div class="step-number">3</div>
-                <h4>Campanha Manual de Palavra-Chave:</h4>
-                <p>1 campanha por palavra-chave individual por produto.</p>
-                <ul>
-                  <li>
-                    <strong>Regras:</strong> Lance padrão R$0,51; Estratégia de
-                    lances: Aumento e redução; Orçamento diário geral: R$10,00;
-                    Usar palavra-chave EXATA e DE FRASE; Máximo 10
-                    palavras-chave inicialmente (20 combinações).
-                  </li>
-                  <li>Segmentação por palavra-chave.</li>
-                </ul>
-              </div>
-              <div class="step">
-                <div class="step-number">4</div>
-                <h4>Campanha Manual de Produto Indicado:</h4>
-                <p>1 campanha por produtos indicados individual por produto.</p>
-                <ul>
-                  <li>
-                    <strong>Regras:</strong> Lance padrão R$0,51; Estratégia de
-                    lances: Aumento e redução; Orçamento diário geral: R$10,00;
-                    Ideal 200 produtos indicados ou mais; Mínimo 50 produtos
-                    concorrentes.
-                  </li>
-                  <li>Segmentação por produto.</li>
-                </ul>
-              </div>
-              <div class="step">
-                <div class="step-number">5</div>
-                <h4>Campanha Manual de Categoria Indicada:</h4>
-                <p>1 campanha de categoria individual por produto.</p>
-                <ul>
-                  <li>
-                    <strong>Regras:</strong> Lance padrão R$0,51; Estratégia de
-                    lances: Aumento e redução; Orçamento diário geral: R$10,00;
-                    Mínimo 1 categoria; Máximo 5 categorias para começar.
-                  </li>
-                  <li>Segmentação por produto.</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Criando Portfólios</h3>
-            <p>
-              Importante para organizar e gerenciar campanhas com vários
-              produtos de forma eficiente. Facilita a análise de desempenho e
-              controle de orçamento.
-            </p>
-
-            <div class="info-box">
-              <h4>Passo a passo:</h4>
-              <p>
-                Amazon ADS > Portfólio > Criar um portfólio > Nome (ex:
-                Campanhas automáticas gerais).
-              </p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Configurações Avançadas de ADS</h3>
-            <ul>
-              <li>
-                Definir limites orçamentários diários e regras orçamentais
-              </li>
-              <li>
-                Utilizar relatórios de anúncios patrocinados para ajustes
-                estratégicos
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Método de Otimização Seller Pro</h3>
-            <div class="highlight">
-              <p>Essencial para manter campanhas eficientes e lucrativas.</p>
-            </div>
-
-            <p>
-              <strong>Frequência:</strong> Semanalmente (no pior dos casos) e
-              análise a cada 90 dias.
-            </p>
-
-            <h4>Campanhas Automáticas Gerais:</h4>
-            <ul>
-              <li>
-                Pausar se gastou 50% do valor de venda do produto e ACOS acima
-                de 20% (ou acima da margem).
-              </li>
-            </ul>
-
-            <h4>Campanhas Automáticas Individuais:</h4>
-            <ul>
-              <li><strong>ACOS de 0% a 20%:</strong> Não faz nada.</li>
-              <li>
-                <strong>ACOS de 20% a 30%:</strong> Otimizar (diminuir lance em
-                50% e considerar 50% do valor do produto em cada segmentação).
-              </li>
-              <li><strong>ACOS acima de 30%:</strong> Pausar.</li>
-            </ul>
-
-            <h4>
-              Campanhas Manuais (Palavra-Chave, Produto Individual/Categoria):
-            </h4>
-            <ul>
-              <li>
-                Pode otimizar após 20 cliques em cada palavra-chave/segmentação.
-              </li>
-              <li><strong>ACOS de 0% a 15%:</strong> Não faz nada.</li>
-              <li><strong>ACOS de 15% a 30%:</strong> Otimizar.</li>
-              <li><strong>ACOS acima de 30%:</strong> Pausar.</li>
-              <li>Adicionar palavras-chaves negativas.</li>
-            </ul>
-
-            <h4>Aumento e Redução de Orçamento:</h4>
-            <ul>
-              <li>
-                <strong>Aumentar 50%:</strong> Campanhas com ACOS entre 10% e
-                20% (e menor que o máximo desejado).
-              </li>
-              <li>
-                <strong>Aumentar 100%:</strong> Campanhas com ACOS entre 0% e
-                10% (e menor que o ACOS objetivo).
-              </li>
-              <li>
-                <strong>Reduzir 50%:</strong> Campanhas com ACOS acima de 30%.
-              </li>
-            </ul>
-
-            <h4>Aumento de Lances (quando a campanha não gasta):</h4>
-            <ul>
-              <li>
-                Para campanhas que gastaram menos de R$5,00 nos últimos 30 dias:
-                Aumentar o lance padrão em 25%.
-              </li>
-              <li><strong>Frequência:</strong> Uma vez por mês.</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Módulo 5 -->
-        <div class="module" id="modulo5">
-          <div class="module-header">
-            <h2 class="module-title">Módulo 5</h2>
-            <p class="module-description">
-              Dicas, Ferramentas Essenciais e MAPA Seller Pro
-            </p>
-          </div>
-
-          <div class="section">
-            <h3>Recompensas da Amazon</h3>
-            <ul>
-              <li>
-                Metas de vendas podem gerar benefícios como cashback e descontos
-                em tarifas.
-              </li>
-              <li>
-                Verificar na aba "Crescimento". Para se inscrever, clique na
-                recompensa, leia as regras e clique no botão de inscrição.
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Suporte da Amazon (Chamados)</h3>
-            <ul>
-              <li>
-                Utilizar a aba "Obter Ajuda e Recursos" para abrir chamados
-              </li>
-              <li>
-                Ser claro e formal, evitando gírias e utilizando imagens, se
-                houver
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Produtos Perigosos (HAZMAT)</h3>
-            <ul>
-              <li>Exigem preenchimento de formulário específico</li>
-              <li>
-                Informações disponíveis na barra de pesquisa da Seller Central
-              </li>
-              <li>Classificá-los corretamente evita bloqueios ou multas</li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Financeiro Amazon</h3>
-            <ul>
-              <li>Pagamento feito em ciclos de 15 dias</li>
-              <li>Recebimento ocorre 7 dias após a confirmação de entrega</li>
-              <li>
-                É fundamental planejar o fluxo de caixa devido ao atraso natural
-                entre venda e recebimento
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Checklist Antes da Primeira Venda</h3>
-            <ul>
-              <li>
-                Verificar forma de envio, configurar devolução, ativar
-                recompensas, atualizar tabela de frete.
-              </li>
-            </ul>
-
-            <h4>Se FBA:</h4>
-            <ul>
-              <li>Configurar faturador (certificado digital)</li>
-              <li>Emitir nota fiscal teste (usar ERP como Bling)</li>
-            </ul>
-
-            <h4>Se FBM:</h4>
-            <ul>
-              <li>Escolher DBA ou melhor opção de envio (ex: Kangu)</li>
-              <li>Configurar devolução</li>
-              <li>Atualizar tabela de frete</li>
-              <li>Ativar recompensas</li>
-              <li>Emitir nota fiscal de teste</li>
-            </ul>
-
-            <div class="info-box">
-              <p>Um checklist evita erros e garante uma operação eficiente.</p>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Ferramentas Essenciais para Vendedores</h3>
-
-            <h4>Bling:</h4>
-            <ul>
-              <li>
-                Sistema ERP brasileiro para emissão de notas fiscais, gestão de
-                estoque e integração com marketplaces
-              </li>
-              <li>Cupom: #SELLERPRO3</li>
-            </ul>
-
-            <h4>Zinx Analytics:</h4>
-            <ul>
-              <li>
-                Extensão de navegador para cálculo de precificação (FBA, DBA,
-                FBM)
-              </li>
-              <li>Análises de vendas e datas de criação de anúncios</li>
-            </ul>
-
-            <h4>Gestor Seller:</h4>
-            <ul>
-              <li>Ferramenta de análise e gestão financeira em tempo real</li>
-              <li>
-                Mostra lucro por produto, vendas detalhadas e desempenho geral
-              </li>
-            </ul>
-
-            <h4>Genius Pro:</h4>
-            <ul>
-              <li>Sistema para encontrar produtos promissores</li>
-              <li>Automatizar pedidos de avaliações</li>
-              <li>Identificar produtos genéricos com alta venda</li>
-              <li>Receber alertas de Buy Box</li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>Promoções e Cupons</h3>
-            <div class="highlight">
-              <p>
-                Essencial para impulsionar vendas, especialmente nos primeiros
-                30 dias.
-              </p>
-            </div>
-
-            <ul>
-              <li>
-                <strong>Ofertas:</strong> Feitas para alavancar produtos (ter
-                mais de 50 unidades em estoque para produtos a posicionar).
-              </li>
-              <li><strong>Cupons:</strong> Criar nos primeiros 30 dias.</li>
-            </ul>
-
-            <h4>Estratégia:</h4>
-            <ul>
-              <li>
-                Nos primeiros 30 dias, 5% de desconto via cupons/promoções
-              </li>
-              <li>
-                Criar promoções de 10% por 10 dias para produtos sem venda nos
-                últimos 30 dias
-              </li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <h3>O MAPA Seller Pro</h3>
-            <div class="highlight">
-              <p>
-                Um caminho estruturado para escalar com segurança na Amazon:
-              </p>
-            </div>
-
-            <div class="steps-container">
-              <div class="step">
-                <div class="step-number">1</div>
-                <p>Abrir CNPJ</p>
-              </div>
-              <div class="step">
-                <div class="step-number">2</div>
-                <p>Abrir conta na Amazon</p>
-              </div>
-              <div class="step">
-                <div class="step-number">3</div>
-                <p>Escolher fornecedores</p>
-              </div>
-              <div class="step">
-                <div class="step-number">4</div>
-                <p>Contratar Genius Pro (opcional)</p>
-              </div>
-              <div class="step">
-                <div class="step-number">5</div>
-                <p>Comprar os primeiros produtos</p>
-              </div>
-              <div class="step">
-                <div class="step-number">6</div>
-                <p>Comprar insumos</p>
-              </div>
-              <div class="step">
-                <div class="step-number">7</div>
-                <p>Contratar certificado digital (se ME ou MEI)</p>
-              </div>
-              <div class="step">
-                <div class="step-number">8</div>
-                <p>Ativar recompensas Amazon</p>
-              </div>
-              <div class="step">
-                <div class="step-number">9</div>
-                <p>Configurar FBA</p>
-              </div>
-              <div class="step">
-                <div class="step-number">10</div>
-                <p>Precificar produtos com 20% de margem de contribuição</p>
-              </div>
-              <div class="step">
-                <div class="step-number">11</div>
-                <p>Cadastrar os 10 primeiros produtos como FBA</p>
-              </div>
-              <div class="step">
-                <div class="step-number">12</div>
-                <p>Fazer o primeiro envio para o FBA</p>
-              </div>
-              <div class="step">
-                <div class="step-number">13</div>
-                <p>Ativar a primeira campanha de ADS</p>
-              </div>
-              <div class="step">
-                <div class="step-number">14</div>
-                <p>Criar promoção de 5%</p>
-              </div>
-              <div class="step">
-                <div class="step-number">15</div>
-                <p>Configurar DBA (se utilizar)</p>
-              </div>
-              <div class="step">
-                <div class="step-number">16</div>
-                <p>Contratar Gestor Seller</p>
-              </div>
-              <div class="step">
-                <div class="step-number">17</div>
-                <p>Criar as campanhas PRO</p>
-              </div>
-              <div class="step">
-                <div class="step-number">18</div>
-                <p>Atingir 30 SKUs cadastrados e ativos</p>
-              </div>
-              <div class="step">
-                <div class="step-number">19</div>
-                <p>Criar a primeira marca registrada</p>
-              </div>
-              <div class="step">
-                <div class="step-number">20</div>
-                <p>Atingir 50 SKUs ativos</p>
-              </div>
-              <div class="step">
-                <div class="step-number">21</div>
-                <p>Reciclagem de SKUs de tempos em tempos</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="highlight">
-              <h3>🎯 Conclusão</h3>
-              <p>
-                Este treinamento apresentou o método Seller Pro completo para
-                operar e escalar vendas na Amazon. Seguindo todos os módulos e
-                implementando as estratégias apresentadas, você terá uma base
-                sólida para construir um negócio sustentável e lucrativo na
-                maior plataforma de e-commerce do mundo.
-              </p>
-
-              <p>
-                <strong>Lembre-se:</strong> O sucesso na Amazon requer
-                consistência, análise constante de métricas e adaptação às
-                mudanças do mercado. Use as ferramentas recomendadas, siga o
-                MAPA Seller Pro e mantenha sempre o foco na experiência do
-                cliente.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button
-        class="btn-download"
-        onclick="downloadPDF()"
-        style="display: none"
-      >
-        📄 Baixar PDF Completo
-      </button>
+      </main>
     </div>
 
-    <script src="script.js"></script>
+    <!-- Modal de Categoria -->
+    <div class="modal-overlay" id="categoryModal" style="display: none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="categoryModalTitle">Nova Categoria</h3>
+          <button class="modal-close" id="closeCategoryModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="categoryNameInput">Nome da Categoria:</label>
+            <input
+              type="text"
+              id="categoryNameInput"
+              class="form-control"
+              placeholder="Ex: João Silva"
+              maxlength="50"
+            />
+            <div class="error-message" id="categoryNameError"></div>
+          </div>
+
+          <div class="form-group">
+            <label>Ícone da Categoria:</label>
+            <div class="icon-grid" id="iconGrid">
+              <!-- Ícones inseridos dinamicamente -->
+            </div>
+            <div class="error-message" id="iconError"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            id="cancelCategoryBtn"
+          >
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="saveCategoryBtn">
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Tarefa -->
+    <div class="modal-overlay" id="taskModal" style="display: none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="taskModalTitle">Nova Tarefa</h3>
+          <button class="modal-close" id="closeTaskModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="taskTextInput">Descrição da Tarefa:</label>
+            <input
+              type="text"
+              id="taskTextInput"
+              class="form-control"
+              placeholder="Ex: Ligar para cliente"
+              maxlength="100"
+            />
+            <div class="error-message" id="taskTextError"></div>
+          </div>
+
+          <!-- Checkbox recorrência -->
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="isRecurringCheckbox"
+                class="recurring-checkbox"
+              />
+              <label for="isRecurringCheckbox" class="recurring-label">
+                <span class="checkbox-icon">🔄</span>
+                Tarefa recorrente semanal
+              </label>
+            </div>
+            <small class="form-hint"
+              >Tarefa será renovada automaticamente</small
+            >
+          </div>
+
+          <!-- Seletor de dia -->
+          <div class="form-group" id="dayOfWeekGroup" style="display: none">
+            <label for="dayOfWeekSelect">Renovar toda:</label>
+            <select id="dayOfWeekSelect" class="form-control">
+              <option value="">Escolha o dia da semana</option>
+              <option value="0">Domingo</option>
+              <option value="1">Segunda-feira</option>
+              <option value="2">Terça-feira</option>
+              <option value="3">Quarta-feira</option>
+              <option value="4">Quinta-feira</option>
+              <option value="5">Sexta-feira</option>
+              <option value="6">Sábado</option>
+            </select>
+            <div class="error-message" id="dayOfWeekError"></div>
+          </div>
+
+          <!-- Múltiplas categorias -->
+          <div class="form-group">
+            <button type="button" class="add-multiple-btn" id="addMultipleBtn">
+              + Adicionar em outras categorias
+            </button>
+          </div>
+
+          <div
+            class="form-group"
+            id="multipleCategoriesGroup"
+            style="display: none"
+          >
+            <label>Selecione as categorias:</label>
+            <div class="categories-list" id="categoriesList">
+              <!-- Checkboxes das categorias -->
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelTaskBtn">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="saveTaskBtn">
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal-overlay" id="deleteModal" style="display: none">
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h3>Confirmar Exclusão</h3>
+          <button class="modal-close" id="closeDeleteModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="deleteMessage">Tem certeza que deseja excluir?</p>
+          <div class="delete-info" id="deleteInfo"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+            Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script principal -->
+    <script type="module" src="app.js"></script>
   </body>
 </html>
